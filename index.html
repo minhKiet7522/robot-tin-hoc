@@ -644,14 +644,22 @@
     min-width: 0;
     padding: 0.4em 0.9em;
     border-radius: 999px;
-    border: 1px solid rgba(164, 107, 255, 0.55);
-    background: rgba(164, 107, 255, 0.12);
-    box-shadow: 0 0 14px rgba(164, 107, 255, 0.2);
+    border: 1.5px solid rgba(190, 150, 255, 0.95);
+    background: linear-gradient(135deg, rgba(164, 107, 255, 0.45), rgba(34, 228, 255, 0.28));
+    box-shadow: 0 0 18px rgba(164, 107, 255, 0.5), inset 0 0 12px rgba(255, 255, 255, 0.08);
     font-size: 0.9em;
     font-weight: 800;
   }
-  .player-label { flex: none; color: var(--muted); font-weight: 700; }
-  .player-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+  .player-icon { flex: none; filter: brightness(2.2) drop-shadow(0 0 4px rgba(255, 255, 255, 0.6)); }
+  .player-label { flex: none; color: #e4d6ff; font-weight: 700; }
+  .player-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--yellow);
+    text-shadow: 0 0 10px rgba(255, 210, 63, 0.55);
+  }
 
   .quiz-card {
     display: flex;
@@ -1101,7 +1109,7 @@
     <div class="quiz-layout" data-fit>
       <aside class="panel status-panel" data-fit>
         <div class="player-chip" id="playerChip">
-          <span aria-hidden="true">👤</span>
+          <span class="player-icon" aria-hidden="true">👤</span>
           <span class="player-label">Người chơi:</span>
           <span class="player-name" id="playerChipName"></span>
         </div>
