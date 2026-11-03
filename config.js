@@ -5,5 +5,5 @@
    TUYỆT ĐỐI KHÔNG dán khóa "service_role" / "secret" vào đây: repo GitHub là công khai. */
 window.APP_CONFIG = {
   SUPABASE_URL: "https://lwojzmwldprdwbaivvwj.supabase.co",
-  SUPABASE_KEY: "sb_publishable_avlQXEq1wf9dwIkhgScuxA_feMkWYYE"
+  SUPABASE_KEY: "sb_publishable_ASaweN5Nl_ArebKPYlj40w_7utoKupe"
 };
