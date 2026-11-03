@@ -4,8 +4,9 @@
 --
 -- - Mã người chơi mẫu có dạng 5a5a5a5a-0000-4000-8000-0000000000NN (NN = 01..20)
 --   để phân biệt với người chơi thật và xóa riêng được.
--- - Điểm, số trạm đúng ngay, tổng lần sai được TÍNH TỪ wrong_tries theo đúng
---   công thức của trò chơi (đúng ngay 100, sai 1 lần 70, sai 2 lần 40, sai 3 lần 10).
+-- - Điểm, số trạm đúng ngay, tổng lần sai được TÍNH TỪ wrong_tries; điểm dùng chính
+--   hàm private.calc_points của trò chơi (tối đa 1000: mỗi trạm 250 / 175 / 100 / 25).
+-- - Cần chạy schema.sql trước (để có hàm private.calc_points).
 -- - Chạy lại nhiều lần vẫn an toàn: lượt chơi mẫu cũ bị xóa rồi tạo lại.
 -- =====================================================================
 
@@ -49,7 +50,7 @@ new_players as (
 insert into public.plays (player_id, wrong_tries, points, first_try, wrong_total, duration_ms, created_at)
 select r.player_id,
        r.wrong_tries,
-       (select sum(greatest(100 - 30 * w, 10)) from unnest(r.wrong_tries) as t(w)),
+       private.calc_points(r.wrong_tries),
        (select count(*) from unnest(r.wrong_tries) as t(w) where w = 0),
        (select sum(w) from unnest(r.wrong_tries) as t(w)),
        r.duration_ms,

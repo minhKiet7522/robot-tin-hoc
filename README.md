@@ -17,7 +17,16 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
 
 ## Cách tính điểm và xếp hạng
 
-- Mỗi trạm: đúng ngay lần đầu được **100**, sai 1 lần được **70**, sai 2 lần được **40**, sai 3 lần được **10**. Tối đa **400 điểm**.
+- Tổng điểm tối đa là **1000**. Mỗi trạm tối đa **250 điểm**, mỗi lần chọn sai bị trừ **75 điểm**:
+
+  | Kết quả ở mỗi trạm | Điểm |
+  |---|---|
+  | Đúng ngay lần đầu | **250** |
+  | Sai 1 lần rồi đúng | **175** |
+  | Sai 2 lần rồi đúng | **100** |
+  | Sai 3 lần rồi đúng | **25** |
+
+  Nếu thêm hoặc bớt câu hỏi, tổng tối đa vẫn là 1000 và được chia đều cho các trạm. Công thức nằm ở hàm `private.calc_points` trong `supabase/schema.sql`.
 - Máy chủ tự tính điểm. Mỗi người chơi chỉ tính **lượt chơi gần nhất**: chơi lại thì kết quả mới thay kết quả cũ, kể cả khi điểm thấp hơn. Ai nhiều điểm hơn đứng trên; bằng điểm thì ai hoàn thành **nhanh hơn** đứng trên.
 - **Nhận diện người chơi theo thiết bị:** mỗi trình duyệt tự sinh một mã ngẫu nhiên, lưu trong máy.
   - Cùng máy chơi lại thì chỉ chiếm một dòng trên bảng, kể cả khi đổi tên. Tên mới sẽ thay tên cũ.

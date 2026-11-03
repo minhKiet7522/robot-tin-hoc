@@ -55,6 +55,19 @@ begin
 end
 $$;
 
+-- Điểm một lượt chơi – nguồn DUY NHẤT của công thức tính điểm. Tổng tối đa luôn là 1000.
+-- Mỗi trạm nhận 1000/N điểm nhân hệ số theo số lần sai w trước khi chọn đúng:
+--   w = 0 → 100%, w = 1 → 70%, w = 2 → 40%, w = 3 → 10%
+-- Với 4 trạm: 250 / 175 / 100 / 25 điểm mỗi trạm.
+create or replace function private.calc_points(p_wrong_tries int[])
+returns int
+language sql
+immutable
+as $$
+  select round(sum(greatest(10 - 3 * w, 1)) * 100.0 / cardinality(p_wrong_tries))::int
+  from unnest(p_wrong_tries) as t(w)
+$$;
+
 -- Xếp hạng theo lượt GẦN NHẤT của mỗi người chơi (chơi lại sẽ thay kết quả cũ, kể cả khi điểm thấp hơn):
 -- điểm cao hơn trước, bằng điểm thì nhanh hơn trước
 create or replace function private.ranked()
@@ -102,7 +115,7 @@ begin
 end
 $$;
 
--- Điểm mỗi trạm: đúng ngay 100, sai 1 lần 70, sai 2 lần 40, sai 3 lần 10
+-- Gửi một lượt chơi; điểm tính bằng private.calc_points (tối đa 1000)
 create or replace function public.submit_score(
   p_player_id uuid,
   p_full_name text,
@@ -137,8 +150,9 @@ begin
     raise exception 'Gửi quá nhanh, vui lòng thử lại sau vài giây';
   end if;
 
-  select sum(greatest(100 - 30 * w, 10)), count(*) filter (where w = 0), sum(w)
-    into v_points, v_first, v_wrong
+  v_points := private.calc_points(p_wrong_tries);
+  select count(*) filter (where w = 0), sum(w)
+    into v_first, v_wrong
   from unnest(p_wrong_tries) as t(w);
 
   insert into public.players (player_id, full_name) values (p_player_id, v_name)
@@ -173,6 +187,7 @@ as $$
 $$;
 
 revoke all on function private.clean_name(text) from public;
+revoke all on function private.calc_points(int[]) from public;
 revoke all on function private.ranked() from public;
 revoke all on function public.register_player(uuid, text) from public;
 revoke all on function public.submit_score(uuid, text, int[], int) from public;
@@ -180,3 +195,9 @@ revoke all on function public.get_leaderboard(uuid, int) from public;
 grant execute on function public.register_player(uuid, text) to anon, authenticated;
 grant execute on function public.submit_score(uuid, text, int[], int) to anon, authenticated;
 grant execute on function public.get_leaderboard(uuid, int) to anon, authenticated;
+
+-- Quy đổi các lượt chơi đã có sang công thức điểm hiện tại (vd thang 400 cũ → 1000).
+-- Chạy lại an toàn: chỉ cập nhật lượt nào có điểm khác với công thức.
+update public.plays
+set points = private.calc_points(wrong_tries)
+where points is distinct from private.calc_points(wrong_tries);
