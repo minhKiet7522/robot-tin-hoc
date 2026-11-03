@@ -47,7 +47,8 @@ as $$
   end
 $$;
 
--- Xếp hạng theo lượt TỐT NHẤT của mỗi email: điểm cao hơn trước, bằng điểm thì nhanh hơn trước
+-- Xếp hạng theo lượt GẦN NHẤT của mỗi email (chơi lại sẽ thay kết quả cũ, kể cả khi điểm thấp hơn):
+-- điểm cao hơn trước, bằng điểm thì nhanh hơn trước
 create or replace function private.ranked()
 returns table (
   rank int, email text, full_name text, points int, first_try int,
@@ -56,18 +57,18 @@ returns table (
 language sql
 stable
 as $$
-  with best as (
+  with latest as (
     select distinct on (p.email)
            p.email, p.points, p.first_try, cardinality(p.wrong_tries) as stations,
            p.wrong_total, p.duration_ms, p.created_at
     from public.plays p
-    order by p.email, p.points desc, p.duration_ms asc, p.created_at asc
+    order by p.email, p.created_at desc, p.id desc
   )
-  select (rank() over (order by b.points desc, b.duration_ms asc))::int,
-         b.email, pl.full_name, b.points, b.first_try, b.stations,
-         b.wrong_total, b.duration_ms, b.created_at
-  from best b
-  join public.players pl on pl.email = b.email
+  select (rank() over (order by l.points desc, l.duration_ms asc))::int,
+         l.email, pl.full_name, l.points, l.first_try, l.stations,
+         l.wrong_total, l.duration_ms, l.created_at
+  from latest l
+  join public.players pl on pl.email = l.email
 $$;
 
 -- Điểm mỗi trạm: đúng ngay 100, sai 1 lần 70, sai 2 lần 40, sai 3 lần 10

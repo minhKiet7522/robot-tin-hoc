@@ -17,7 +17,7 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
 ## Cách tính điểm và xếp hạng
 
 - Mỗi trạm: đúng ngay lần đầu được **100**, sai 1 lần được **70**, sai 2 lần được **40**, sai 3 lần được **10**. Tối đa **400 điểm**.
-- Máy chủ tự tính điểm. Mỗi email chỉ giữ **lượt tốt nhất**. Ai nhiều điểm hơn đứng trên; bằng điểm thì ai hoàn thành **nhanh hơn** đứng trên.
+- Máy chủ tự tính điểm. Mỗi email chỉ tính **lượt chơi gần nhất**: chơi lại thì kết quả mới thay kết quả cũ, kể cả khi điểm thấp hơn. Ai nhiều điểm hơn đứng trên; bằng điểm thì ai hoàn thành **nhanh hơn** đứng trên.
 - Một người chơi lại nhiều lần với cùng email vẫn chỉ chiếm một dòng trên bảng.
 
 ---
