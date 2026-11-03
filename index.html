@@ -989,10 +989,23 @@
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
-  .board-row.top1 { border-color: rgba(255, 210, 63, 0.65); background: rgba(255, 210, 63, 0.09); }
-  .board-row.top2 { border-color: rgba(200, 215, 240, 0.55); background: rgba(200, 215, 240, 0.07); }
-  .board-row.top3 { border-color: rgba(255, 159, 67, 0.55); background: rgba(255, 159, 67, 0.07); }
-  .board-row.me { box-shadow: 0 0 0 2px var(--cyan), 0 0 18px rgba(34, 228, 255, 0.35); }
+  /* Dòng của chính người đang xem: nổi bật hơn hẳn các dòng còn lại */
+  .board-row.me {
+    border-color: var(--cyan);
+    background: linear-gradient(90deg, rgba(34, 228, 255, 0.2), rgba(57, 255, 159, 0.1));
+    box-shadow: 0 0 0 1px var(--cyan), 0 0 22px rgba(34, 228, 255, 0.45);
+  }
+  .board-row.me .board-name { color: var(--cyan); }
+  .me-tag {
+    margin-left: 0.5em;
+    padding: 0.1em 0.55em;
+    border-radius: 999px;
+    font-size: 0.72em;
+    font-weight: 900;
+    vertical-align: 0.15em;
+    color: #04101f;
+    background: var(--cyan);
+  }
   .board-rank { font-weight: 900; font-size: 1.15em; text-align: center; color: var(--cyan); }
   .board-who { display: flex; flex-direction: column; min-width: 0; }
   .board-name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2121,10 +2134,12 @@
       els.boardList.appendChild(node("li", "board-empty", "Chưa có ai hoàn thành – hãy là người đầu tiên! 🚀"));
     }
     rows.forEach(function (r) {
-      var li = node("li", "board-row" + (r.rank <= 3 ? " top" + r.rank : "") + (r.is_me ? " me" : ""));
+      var li = node("li", "board-row" + (r.is_me ? " me" : ""));
       li.appendChild(node("span", "board-rank", MEDALS[r.rank - 1] || "#" + r.rank));
       var who = node("span", "board-who");
-      who.appendChild(node("span", "board-name", r.full_name));
+      var name = node("span", "board-name", r.full_name);
+      if (r.is_me) name.appendChild(node("span", "me-tag", "Bạn"));
+      who.appendChild(name);
       li.appendChild(who);
       var sc = node("span", "board-score");
       sc.appendChild(node("span", "board-points", r.points));
