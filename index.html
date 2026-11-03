@@ -634,6 +634,25 @@
   .status-panel .robot-slot { --robot-h: calc(clamp(56px, 12vh, 150px) * var(--s)); }
   .status-info { display: flex; flex-direction: column; gap: 0.5em; min-width: 0; }
 
+  /* Tên người chơi: luôn 1 dòng, tên quá dài thì cắt bằng "…" để không làm xô lệch bố cục */
+  .player-chip {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
+    min-width: 0;
+    padding: 0.4em 0.9em;
+    border-radius: 999px;
+    border: 1px solid rgba(164, 107, 255, 0.55);
+    background: rgba(164, 107, 255, 0.12);
+    box-shadow: 0 0 14px rgba(164, 107, 255, 0.2);
+    font-size: 0.9em;
+    font-weight: 800;
+  }
+  .player-label { flex: none; color: var(--muted); font-weight: 700; }
+  .player-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+
   .quiz-card {
     display: flex;
     flex-direction: column;
@@ -1081,6 +1100,11 @@
   <section class="screen" id="screenQuiz" aria-label="Màn hình trả lời câu hỏi">
     <div class="quiz-layout" data-fit>
       <aside class="panel status-panel" data-fit>
+        <div class="player-chip" id="playerChip">
+          <span aria-hidden="true">👤</span>
+          <span class="player-label">Người chơi:</span>
+          <span class="player-name" id="playerChipName"></span>
+        </div>
         <div class="robot-slot" id="robotQuiz" data-state="idle"></div>
         <div class="status-info">
           <div class="battery-wrap" id="quizBattery">
@@ -1378,6 +1402,8 @@
     statEnergy: $("statEnergy"),
     review: $("review"),
     soundToggle: $("soundToggle"),
+    playerChip: $("playerChip"),
+    playerChipName: $("playerChipName"),
     loginForm: $("loginForm"),
     playerName: $("playerName"),
     playerEmail: $("playerEmail"),
@@ -1777,6 +1803,8 @@
     score = 0;
     results = [];
     startedAt = Date.now();
+    els.playerChipName.textContent = player.name;
+    els.playerChip.title = "Người chơi: " + player.name;
     setEnergy(0);
     renderQuestion();
     showScreen("quiz");
