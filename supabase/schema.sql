@@ -201,3 +201,122 @@ grant execute on function public.get_leaderboard(uuid, int) to anon, authenticat
 update public.plays
 set points = private.calc_points(wrong_tries)
 where points is distinct from private.calc_points(wrong_tries);
+
+-- =====================================================================
+-- QUẢN TRỊ: nút "Xóa bảng xếp hạng" (mở bằng link .../#quan-tri)
+-- Kết quả KHÔNG mất: được chuyển vào private.archived_plays theo từng đợt.
+-- Mật khẩu chỉ lưu dạng băm bcrypt trong CSDL, không bao giờ nằm trong code.
+--
+-- Đặt / đổi mật khẩu (giáo viên tự chạy trong SQL Editor, ít nhất 8 ký tự):
+--   select private.set_admin_password('mật-khẩu-của-bạn');
+-- =====================================================================
+
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+
+create table if not exists private.admin_config (
+  id            int primary key default 1 check (id = 1),
+  password_hash text not null,
+  updated_at    timestamptz not null default now()
+);
+
+create table if not exists private.admin_attempts (
+  id         bigint generated always as identity primary key,
+  success    boolean not null,
+  created_at timestamptz not null default now()
+);
+
+create sequence if not exists private.archive_seq;
+
+create table if not exists private.archived_plays (
+  archive_id  bigint not null,
+  archived_at timestamptz not null,
+  player_id   uuid not null,
+  full_name   text not null,
+  wrong_tries int[] not null,
+  points      int not null,
+  first_try   int not null,
+  wrong_total int not null,
+  duration_ms int not null,
+  played_at   timestamptz not null
+);
+create index if not exists archived_plays_archive_idx on private.archived_plays (archive_id);
+
+create or replace function private.set_admin_password(p_password text)
+returns text
+language plpgsql
+as $$
+begin
+  if char_length(coalesce(p_password, '')) < 8 then
+    raise exception 'Mật khẩu quản trị cần ít nhất 8 ký tự';
+  end if;
+  insert into private.admin_config (id, password_hash)
+  values (1, extensions.crypt(p_password, extensions.gen_salt('bf')))
+  on conflict (id) do update set password_hash = excluded.password_hash, updated_at = now();
+  delete from private.admin_attempts;   -- đặt lại mật khẩu thì mở khóa luôn
+  return 'Đã đặt mật khẩu quản trị';
+end
+$$;
+
+-- Lưu trữ toàn bộ lượt chơi hiện có rồi làm trống bảng xếp hạng.
+-- Sai mật khẩu thì TRẢ VỀ ok = false (không raise) để lần thử sai được ghi lại;
+-- sai 5 lần liên tiếp trong 10 phút thì tạm khóa 10 phút.
+create or replace function public.reset_leaderboard(p_password text)
+returns table (ok boolean, message text, archived int)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_hash    text;
+  v_fails   int;
+  v_archive bigint;
+  v_now     timestamptz := now();
+  v_count   int;
+begin
+  select c.password_hash into v_hash from private.admin_config c where c.id = 1;
+  if v_hash is null then
+    return query select false, 'Chưa thiết lập mật khẩu quản trị (xem README).', 0;
+    return;
+  end if;
+
+  select count(*) into v_fails
+  from private.admin_attempts a
+  where not a.success
+    and a.created_at > v_now - interval '10 minutes'
+    and a.created_at > coalesce((select max(b.created_at) from private.admin_attempts b where b.success), '-infinity');
+  if v_fails >= 5 then
+    return query select false, 'Nhập sai quá nhiều lần. Vui lòng thử lại sau 10 phút.', 0;
+    return;
+  end if;
+
+  if extensions.crypt(coalesce(p_password, ''), v_hash) <> v_hash then
+    insert into private.admin_attempts (success) values (false);
+    return query select false, 'Mật khẩu quản trị không đúng.', 0;
+    return;
+  end if;
+  insert into private.admin_attempts (success) values (true);
+
+  -- Khóa theo đúng thứ tự submit_score ghi (players rồi plays) để không deadlock,
+  -- và để lượt gửi đúng lúc này chờ xong rồi mới ghi vào bảng mới
+  lock table public.players, public.plays in exclusive mode;
+
+  v_archive := nextval('private.archive_seq');
+  insert into private.archived_plays
+    (archive_id, archived_at, player_id, full_name, wrong_tries, points, first_try, wrong_total, duration_ms, played_at)
+  select v_archive, v_now, p.player_id, pl.full_name, p.wrong_tries, p.points, p.first_try,
+         p.wrong_total, p.duration_ms, p.created_at
+  from public.plays p
+  join public.players pl on pl.player_id = p.player_id;
+  get diagnostics v_count = row_count;
+
+  delete from public.players;   -- plays xóa theo nhờ "on delete cascade"
+
+  return query select true, 'Đã lưu trữ ' || v_count || ' lượt chơi (đợt #' || v_archive || ')', v_count;
+end
+$$;
+
+revoke all on function private.set_admin_password(text) from public;
+revoke all on function public.reset_leaderboard(text) from public;
+grant execute on function public.reset_leaderboard(text) to anon, authenticated;

@@ -906,6 +906,32 @@
     box-shadow: 0 0 0 2px rgba(34, 228, 255, 0.55) inset;
   }
   .btn-ghost:hover { box-shadow: 0 0 0 2px var(--cyan) inset, 0 10px 30px rgba(34, 228, 255, 0.3); }
+  .btn-danger {
+    color: #fff;
+    background: linear-gradient(135deg, var(--red), var(--orange));
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15) inset, 0 8px 28px rgba(255, 77, 109, 0.45);
+  }
+  .btn-danger:hover { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25) inset, 0 12px 36px rgba(255, 77, 109, 0.6); }
+  .btn[hidden] { display: none; }
+
+  /* ---------- Hộp thoại quản trị: xóa bảng xếp hạng ---------- */
+  .admin-dialog {
+    margin: auto;
+    width: min(92vw, 28em);
+    padding: 1.4em 1.5em;
+    border-radius: var(--radius);
+    border: 1px solid rgba(255, 77, 109, 0.6);
+    background: #0d1636;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: clamp(14px, 0.6vw + 10px, 20px);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 77, 109, 0.2);
+  }
+  .admin-dialog::backdrop { background: rgba(3, 6, 18, 0.75); }
+  .admin-dialog form { display: flex; flex-direction: column; gap: 0.8em; }
+  .admin-dialog h3 { font-size: 1.3em; font-weight: 900; color: #ffb3c0; }
+  .reset-desc { color: var(--muted); font-size: 0.92em; line-height: 1.5; }
+  .admin-dialog .btn-row { justify-content: flex-end; }
 
   /* ---------- Trạng thái gửi điểm ở màn kết quả ---------- */
   .rank-status {
@@ -1211,11 +1237,29 @@
       <div class="btn-row">
         <button class="btn" id="btnRefresh" type="button">🔄 Làm mới</button>
         <button class="btn btn-ghost" id="btnBoardBack" type="button">⬅ Quay lại</button>
+        <button class="btn btn-danger" id="btnReset" type="button" hidden>🗑 Xóa bảng xếp hạng</button>
       </div>
     </div>
   </section>
 
 </main>
+
+<!-- Chỉ dùng ở chế độ quản trị (.../#quan-tri); mật khẩu được kiểm tra trên máy chủ -->
+<dialog class="admin-dialog" id="resetDialog" aria-labelledby="resetTitle">
+  <form id="resetForm" novalidate>
+    <h3 id="resetTitle">🗑 Xóa bảng xếp hạng</h3>
+    <p class="reset-desc" id="resetDesc"></p>
+    <div class="field">
+      <label for="adminPassword">Mật khẩu quản trị</label>
+      <input id="adminPassword" type="password" autocomplete="current-password" required>
+    </div>
+    <p class="form-error" id="resetError" role="alert"></p>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="btnResetCancel" type="button">Hủy</button>
+      <button class="btn btn-danger" id="btnResetConfirm" type="submit">Lưu trữ &amp; xóa</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="config.js"></script>
 <script>
@@ -1426,7 +1470,15 @@
     rankText: $("rankText"),
     btnRetrySubmit: $("btnRetrySubmit"),
     boardMeta: $("boardMeta"),
-    boardList: $("boardList")
+    boardList: $("boardList"),
+    btnReset: $("btnReset"),
+    resetDialog: $("resetDialog"),
+    resetForm: $("resetForm"),
+    resetDesc: $("resetDesc"),
+    resetError: $("resetError"),
+    adminPassword: $("adminPassword"),
+    btnResetCancel: $("btnResetCancel"),
+    btnResetConfirm: $("btnResetConfirm")
   };
 
   Object.keys(robots).forEach(function (key, i) {
@@ -1974,6 +2026,8 @@
   var BOARD_REFRESH_MS = 15000;
   var BOARD_TIMEOUT_MS = 10000;
   var BOARD_HASH = "#bang-xep-hang";
+  var ADMIN_HASH = "#quan-tri";        // bảng xếp hạng + nút xóa dành cho giáo viên
+  var RESET_TIMEOUT_MS = 15000;
   var REGISTER_TIMEOUT_MS = 8000;
   var PLAYER_KEY = "robotQuiz.player";
   var DEVICE_KEY = "robotQuiz.deviceId";
@@ -2050,6 +2104,10 @@
   var boardLoading = false;
   var boardBackTo = "intro";
   var boardScrollToMe = false;
+  var boardCount = 0;          // số người đang có trên bảng (hiện trong hộp thoại xóa)
+  var boardNotice = "";        // thông báo tạm thời ở dòng trạng thái, vd sau khi xóa bảng
+  var resetting = false;
+  var btnResetLabel = els.btnResetConfirm.textContent;
 
   if (player) els.playerName.value = player.name || "";
 
@@ -2147,7 +2205,8 @@
       li.appendChild(sc);
       els.boardList.appendChild(li);
     });
-    els.boardMeta.textContent = rows.length + " người chơi · cập nhật lúc " +
+    boardCount = rows.length;
+    els.boardMeta.textContent = (boardNotice ? boardNotice + " · " : "") + rows.length + " người chơi · cập nhật lúc " +
       new Date().toLocaleTimeString("vi-VN") + " · tự làm mới mỗi " + BOARD_REFRESH_MS / 1000 + " giây";
 
     var me = els.boardList.querySelector(".me");
@@ -2168,9 +2227,10 @@
     }).then(function () { boardLoading = false; });
   }
 
-  function openBoard(backTo) {
+  function openBoard(backTo, admin) {
     boardBackTo = backTo;
     boardScrollToMe = true;
+    els.btnReset.hidden = !admin;
     fireworks.stop();
     els.boardMeta.textContent = "⏳ Đang tải…";
     showScreen("board");
@@ -2181,8 +2241,55 @@
 
   function closeBoard() {
     clearInterval(boardTimer);
-    if (location.hash === BOARD_HASH) history.replaceState(null, "", location.pathname + location.search);
+    els.btnReset.hidden = true;
+    if (location.hash === BOARD_HASH || location.hash === ADMIN_HASH) {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
     showScreen(boardBackTo);
+  }
+
+  /* ---------- Quản trị: lưu trữ rồi xóa bảng xếp hạng ---------- */
+  function setResetting(on) {
+    resetting = on;
+    els.btnResetConfirm.disabled = on;
+    els.btnResetCancel.disabled = on;
+    els.adminPassword.readOnly = on;
+    els.btnResetConfirm.textContent = on ? "⏳ Đang xóa…" : btnResetLabel;
+  }
+
+  function openResetDialog() {
+    els.resetDesc.textContent = "Bảng hiện có " + boardCount + " người chơi. Toàn bộ kết quả sẽ được " +
+      "chuyển vào lưu trữ (khôi phục được bằng SQL) và bảng xếp hạng trở về trống.";
+    els.resetError.textContent = "";
+    els.adminPassword.value = "";
+    els.resetDialog.showModal();
+    els.adminPassword.focus();
+  }
+
+  function submitReset() {
+    var password = els.adminPassword.value;
+    if (!password) { els.resetError.textContent = "Bạn hãy nhập mật khẩu quản trị."; els.adminPassword.focus(); return; }
+    setResetting(true);
+    els.resetError.textContent = "";
+    rpc("reset_leaderboard", { p_password: password }, RESET_TIMEOUT_MS).then(function (rows) {
+      var r = rows && rows[0];
+      if (!r) throw new Error("máy chủ không phản hồi kết quả");
+      if (!r.ok) {
+        sfx.wrong();
+        els.resetError.textContent = "⚠️ " + r.message;
+        els.adminPassword.select();
+        return;
+      }
+      els.adminPassword.value = "";
+      els.resetDialog.close();
+      sfx.correct();
+      boardNotice = "✅ " + r.message;
+      setTimeout(function () { boardNotice = ""; }, 60000);
+      loadBoard();
+    }).catch(function (err) {
+      sfx.wrong();
+      els.resetError.textContent = "⚠️ Không xóa được: " + err.message + ".";
+    }).then(function () { setResetting(false); });
   }
 
   /* ================= SỰ KIỆN ================= */
@@ -2202,6 +2309,14 @@
   $("btnBoard").addEventListener("click", function () { sfx.click(); openBoard("result"); });
   $("btnRefresh").addEventListener("click", function () { sfx.click(); loadBoard(); });
   $("btnBoardBack").addEventListener("click", function () { sfx.click(); closeBoard(); });
+  els.btnReset.addEventListener("click", function () { sfx.click(); openResetDialog(); });
+  els.resetForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!resetting) submitReset();
+  });
+  els.btnResetCancel.addEventListener("click", function () { if (!resetting) els.resetDialog.close(); });
+  els.resetDialog.addEventListener("cancel", function (e) { if (resetting) e.preventDefault(); });   // phím Esc
+  els.resetDialog.addEventListener("close", function () { els.adminPassword.value = ""; });
   $("btnReplay").addEventListener("click", function () {
     sfx.click();
     fireworks.stop();
@@ -2231,15 +2346,19 @@
   fitActive();
   window.addEventListener("load", fitActive);
 
-  /* Link dành cho giáo viên trình chiếu: .../#bang-xep-hang mở thẳng bảng xếp hạng */
-  if (location.hash === BOARD_HASH) openBoard("intro");
+  /* Link dành cho giáo viên: .../#bang-xep-hang mở thẳng bảng xếp hạng (trình chiếu),
+     .../#quan-tri mở bảng xếp hạng kèm nút xóa */
+  function openBoardFromHash() {
+    var admin = location.hash === ADMIN_HASH;
+    if (location.hash !== BOARD_HASH && !admin) return;
+    if (activeScreen === screens.board) { els.btnReset.hidden = !admin; return; }
+    openBoard(Object.keys(screens).filter(function (key) { return screens[key] === activeScreen; })[0], admin);
+  }
+  openBoardFromHash();
+  window.addEventListener("hashchange", openBoardFromHash);
   /* Tab hiện lại (hoặc máy chiếu vừa thức dậy): tải bảng mới ngay, không chờ đủ 15 giây */
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden && activeScreen === screens.board) loadBoard();
-  });
-  window.addEventListener("hashchange", function () {
-    if (location.hash !== BOARD_HASH || activeScreen === screens.board) return;
-    openBoard(Object.keys(screens).filter(function (key) { return screens[key] === activeScreen; })[0]);
   });
 })();
 </script>

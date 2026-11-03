@@ -111,8 +111,58 @@ from private.ranked()
 order by rank;
 ```
 
-## Xóa dữ liệu để bắt đầu tiết mới
+## Xóa bảng xếp hạng để bắt đầu tiết mới (nút dành cho giáo viên)
 
+1. **Đặt mật khẩu quản trị một lần.** Trong SQL Editor, chạy lệnh sau (ít nhất 8 ký tự). Chạy lại lệnh này để đổi mật khẩu.
+   ```sql
+   select private.set_admin_password('mật-khẩu-của-bạn');
+   ```
+   Mật khẩu chỉ lưu dạng mã hóa trong Supabase, không nằm trong code. Đừng ghi mật khẩu vào file nào trong repo.
+2. **Mở link quản trị** `https://<tên-github>.github.io/<tên-repo>/#quan-tri`. Bảng xếp hạng sẽ có thêm nút đỏ **🗑 Xóa bảng xếp hạng**. Người chơi mở link thường không thấy nút này.
+3. Bấm nút, nhập mật khẩu rồi bấm **Lưu trữ & xóa**. Bảng trở về trống, và mọi máy đang mở bảng xếp hạng sẽ cập nhật trong vòng 15 giây.
+
+- Kết quả **không mất**: mỗi lần xóa tạo một **đợt lưu trữ** mới, xem hoặc khôi phục được bằng SQL ở bên dưới.
+- Nhập sai mật khẩu **5 lần liên tiếp** thì bị khóa **10 phút**. Đặt lại mật khẩu bằng lệnh ở bước 1 sẽ mở khóa ngay.
+- Người đang chơi dở lúc xóa vẫn chơi bình thường. Kết quả của họ sẽ hiện trên bảng mới.
+
+### Xem các đợt đã lưu trữ
+```sql
+select archive_id as "Đợt", archived_at as "Thời điểm xóa",
+       count(distinct player_id) as "Số người", count(*) as "Số lượt"
+from private.archived_plays
+group by 1, 2
+order by 1 desc;
+```
+
+### Xuất kết quả một đợt ra Excel (thay `1` bằng số đợt)
+```sql
+with latest as (
+  select distinct on (player_id) *
+  from private.archived_plays
+  where archive_id = 1
+  order by player_id, played_at desc
+)
+select rank() over (order by points desc, duration_ms) as "Hạng",
+       full_name as "Họ và tên", points as "Điểm",
+       round(duration_ms / 1000.0) as "Thời gian (giây)"
+from latest
+order by 1;
+```
+
+### Khôi phục một đợt lên bảng xếp hạng (thay `1` bằng số đợt)
+```sql
+insert into public.players (player_id, full_name)
+select distinct on (player_id) player_id, full_name
+from private.archived_plays where archive_id = 1
+order by player_id, played_at desc
+on conflict (player_id) do nothing;
+
+insert into public.plays (player_id, wrong_tries, points, first_try, wrong_total, duration_ms, created_at)
+select player_id, wrong_tries, points, first_try, wrong_total, duration_ms, played_at
+from private.archived_plays where archive_id = 1;
+```
+
+### Xóa vĩnh viễn (không lưu trữ)
 ```sql
 truncate public.plays, public.players;
 ```
