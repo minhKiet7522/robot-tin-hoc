@@ -1959,6 +1959,7 @@
   var API_KEY = String(CONFIG.SUPABASE_KEY || "").trim();
   var BOARD_LIMIT = 200;
   var BOARD_REFRESH_MS = 15000;
+  var BOARD_TIMEOUT_MS = 10000;
   var BOARD_HASH = "#bang-xep-hang";
   var REGISTER_TIMEOUT_MS = 8000;
   var PLAYER_KEY = "robotQuiz.player";
@@ -2114,6 +2115,7 @@
   }
 
   function renderBoard(rows) {
+    var keepScroll = els.boardList.scrollTop;   // giữ vị trí cuộn khi tự làm mới
     els.boardList.innerHTML = "";
     if (!rows.length) {
       els.boardList.appendChild(node("li", "board-empty", "Chưa có ai hoàn thành – hãy là người đầu tiên! 🚀"));
@@ -2134,14 +2136,19 @@
       new Date().toLocaleTimeString("vi-VN") + " · tự làm mới mỗi " + BOARD_REFRESH_MS / 1000 + " giây";
 
     var me = els.boardList.querySelector(".me");
-    if (me && boardScrollToMe) me.scrollIntoView({ block: "nearest" });
+    if (boardScrollToMe) {
+      if (me) me.scrollIntoView({ block: "nearest" });
+    } else {
+      els.boardList.scrollTop = keepScroll;
+    }
     boardScrollToMe = false;
   }
 
+  /* Có timeout để một yêu cầu bị treo không làm bảng ngừng tự làm mới */
   function loadBoard() {
     if (boardLoading) return;
     boardLoading = true;
-    rpc("get_leaderboard", { p_player_id: deviceId, p_limit: BOARD_LIMIT }).then(renderBoard).catch(function (err) {
+    rpc("get_leaderboard", { p_player_id: deviceId, p_limit: BOARD_LIMIT }, BOARD_TIMEOUT_MS).then(renderBoard).catch(function (err) {
       els.boardMeta.textContent = "⚠️ Không tải được bảng xếp hạng: " + err.message + ".";
     }).then(function () { boardLoading = false; });
   }
@@ -2211,6 +2218,10 @@
 
   /* Link dành cho giáo viên trình chiếu: .../#bang-xep-hang mở thẳng bảng xếp hạng */
   if (location.hash === BOARD_HASH) openBoard("intro");
+  /* Tab hiện lại (hoặc máy chiếu vừa thức dậy): tải bảng mới ngay, không chờ đủ 15 giây */
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && activeScreen === screens.board) loadBoard();
+  });
   window.addEventListener("hashchange", function () {
     if (location.hash !== BOARD_HASH || activeScreen === screens.board) return;
     openBoard(Object.keys(screens).filter(function (key) { return screens[key] === activeScreen; })[0]);
