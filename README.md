@@ -1,6 +1,6 @@
 # Nạp Năng Lượng Cho Robot Tin Học – Cyber Robot Adventure
 
-Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Người tham gia mở link, nhập **họ tên + email** rồi chơi. Chơi xong, kết quả được lưu và hiện trên **bảng xếp hạng** (email được che bớt, ví dụ `ng***@gmail.com`).
+Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Người tham gia mở link, chỉ cần nhập **họ và tên** rồi chơi. Chơi xong, kết quả được lưu và hiện trên **bảng xếp hạng**.
 
 - Giao diện: một trang web tĩnh, chạy miễn phí trên **GitHub Pages**
 - Lưu điểm và xếp hạng: **Supabase** gói miễn phí
@@ -13,16 +13,20 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
 | `index.html` | Toàn bộ trò chơi: giao diện, câu hỏi, đăng nhập, bảng xếp hạng |
 | `config.js` | Địa chỉ và khóa công khai của Supabase (bạn tự điền) |
 | `supabase/schema.sql` | Tạo bảng và hàm trên Supabase (chạy một lần) |
+| `supabase/migrate-bo-email.sql` | Chỉ dùng một lần khi chuyển từ bản cũ có email (xóa bảng cũ) |
 
 ## Cách tính điểm và xếp hạng
 
 - Mỗi trạm: đúng ngay lần đầu được **100**, sai 1 lần được **70**, sai 2 lần được **40**, sai 3 lần được **10**. Tối đa **400 điểm**.
-- Máy chủ tự tính điểm. Mỗi email chỉ tính **lượt chơi gần nhất**: chơi lại thì kết quả mới thay kết quả cũ, kể cả khi điểm thấp hơn. Ai nhiều điểm hơn đứng trên; bằng điểm thì ai hoàn thành **nhanh hơn** đứng trên.
-- Một người chơi lại nhiều lần với cùng email vẫn chỉ chiếm một dòng trên bảng.
+- Máy chủ tự tính điểm. Mỗi người chơi chỉ tính **lượt chơi gần nhất**: chơi lại thì kết quả mới thay kết quả cũ, kể cả khi điểm thấp hơn. Ai nhiều điểm hơn đứng trên; bằng điểm thì ai hoàn thành **nhanh hơn** đứng trên.
+- **Nhận diện người chơi theo thiết bị:** mỗi trình duyệt tự sinh một mã ngẫu nhiên, lưu trong máy.
+  - Cùng máy chơi lại thì chỉ chiếm một dòng trên bảng, kể cả khi đổi tên. Tên mới sẽ thay tên cũ.
+  - Hai người trùng họ tên trên hai máy khác nhau vẫn là hai dòng riêng.
+  - Đổi máy, đổi trình duyệt, mở tab ẩn danh hoặc xóa dữ liệu trình duyệt thì được tính là người chơi mới.
 
 ## Khi bấm "Bắt đầu"
 
-Trò chơi lưu họ tên và email lên Supabase (hàm `register_player`), **chờ máy chủ xác nhận rồi mới vào trạm 1**. Thường chỉ mất dưới 1 giây. Trong lúc chờ, nút hiện *“⏳ Đang lưu thông tin…”* và không bấm thêm được, nên không bị gửi trùng. Nếu mạng lỗi hoặc máy chủ không trả lời sau **8 giây**, trò chơi báo lỗi và cho bấm thử lại.
+Trò chơi lưu họ tên và mã thiết bị lên Supabase (hàm `register_player`), **chờ máy chủ xác nhận rồi mới vào trạm 1**. Thường chỉ mất dưới 1 giây. Trong lúc chờ, nút hiện *“⏳ Đang lưu thông tin…”* và không bấm thêm được, nên không bị gửi trùng. Nếu mạng lỗi hoặc máy chủ không trả lời sau **8 giây**, trò chơi báo lỗi và cho bấm thử lại.
 
 Người mới đăng ký mà chưa chơi xong sẽ **chưa** xuất hiện trên bảng xếp hạng. Họ chỉ có mặt trong bảng `players` trên Supabase.
 
@@ -85,12 +89,12 @@ Mỗi lần sửa code và đẩy lên lại, GitHub Pages tự cập nhật sau
 - [ ] Mở link thật trên điện thoại và chơi thử một lượt.
 - [ ] (Tùy chọn) Xóa dữ liệu chơi thử, xem mục bên dưới.
 
-## Xem đầy đủ email và xuất file kết quả (dành cho giáo viên)
+## Xuất file kết quả (dành cho giáo viên)
 
 Trong **SQL Editor**, chạy lệnh sau, rồi bấm **Export → Download CSV** để tải về mở bằng Excel:
 
 ```sql
-select rank as "Hạng", full_name as "Họ và tên", email as "Email",
+select rank as "Hạng", full_name as "Họ và tên",
        points as "Điểm", first_try as "Đúng ngay lần đầu",
        wrong_total as "Số lần sai", round(duration_ms / 1000.0) as "Thời gian (giây)",
        played_at as "Thời điểm"

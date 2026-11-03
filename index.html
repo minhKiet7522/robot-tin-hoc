@@ -866,12 +866,12 @@
   .next-row { display: flex; justify-content: center; flex: none; }
   .next-row.anim { animation: screenIn 0.45s ease both; }
 
-  /* ---------- Đăng nhập (email + họ tên) ---------- */
+  /* ---------- Đăng nhập (chỉ cần họ tên) ---------- */
   .login-form {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.5em 0.7em;
-    width: min(100%, 30em);
+    width: min(100%, 26em);
     text-align: left;
   }
   .field { display: flex; flex-direction: column; gap: 0.25em; min-width: 0; }
@@ -995,9 +995,7 @@
   .board-row.me { box-shadow: 0 0 0 2px var(--cyan), 0 0 18px rgba(34, 228, 255, 0.35); }
   .board-rank { font-weight: 900; font-size: 1.15em; text-align: center; color: var(--cyan); }
   .board-who { display: flex; flex-direction: column; min-width: 0; }
-  .board-name, .board-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .board-name { font-weight: 800; }
-  .board-email { font-size: 0.8em; color: var(--muted); }
+  .board-name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .board-score { display: flex; flex-direction: column; align-items: flex-end; }
   .board-points { font-weight: 900; font-size: 1.3em; line-height: 1.1; color: var(--green); text-shadow: 0 0 12px rgba(57, 255, 159, 0.5); }
   .board-detail { font-size: 0.72em; color: var(--muted); white-space: nowrap; }
@@ -1047,7 +1045,6 @@
   @media (max-width: 420px) {
     .stations { gap: 0.3em; }
     .review { grid-template-columns: minmax(0, 1fr); }
-    .login-form { grid-template-columns: minmax(0, 1fr); }
     .board { padding: 1em 0.8em; }
     .board-cols, .board-row { grid-template-columns: 2.2em minmax(0, 1fr) auto; gap: 0.6em; padding-inline: 0.6em; }
     .board-cols { padding-inline: calc(0.6em + 0.2em + 1px); }
@@ -1093,14 +1090,10 @@
             <label for="playerName">Họ và tên</label>
             <input id="playerName" type="text" autocomplete="name" maxlength="80" placeholder="VD: Nguyễn Văn An" required>
           </div>
-          <div class="field">
-            <label for="playerEmail">Email</label>
-            <input id="playerEmail" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="ten@gmail.com" required>
-          </div>
           <p class="form-error" id="loginError" role="alert"></p>
           <button class="btn btn-big btn-pulse" id="btnStart" type="submit">⚡ Bắt đầu nạp năng lượng</button>
         </form>
-        <p class="hint">Email chỉ dùng để phân biệt người chơi và được che bớt trên bảng xếp&nbsp;hạng. Mẹo: dùng phím <strong>A, B, C, D</strong> (hoặc 1–4) để chọn đáp án, <strong>Enter</strong> để sang trạm&nbsp;mới.</p>
+        <p class="hint">Mẹo: dùng phím <strong>A, B, C, D</strong> (hoặc 1–4) để chọn đáp án, <strong>Enter</strong> để sang trạm&nbsp;mới.</p>
       </div>
     </div>
   </section>
@@ -1415,7 +1408,6 @@
     playerChipName: $("playerChipName"),
     loginForm: $("loginForm"),
     playerName: $("playerName"),
-    playerEmail: $("playerEmail"),
     loginError: $("loginError"),
     rankStatus: $("rankStatus"),
     rankText: $("rankText"),
@@ -1944,7 +1936,7 @@
     els.resultMsg.textContent = noOrphan(msg);
 
     lastSubmit = {
-      p_email: player.email,
+      p_player_id: deviceId,
       p_full_name: player.name,
       p_wrong_tries: results.slice(),
       p_duration_ms: Date.now() - startedAt
@@ -1959,9 +1951,9 @@
   }
 
   /* ================= MÁY CHỦ XẾP HẠNG (Supabase) =================
-     Trình duyệt chỉ gọi 3 hàm RPC: register_player (lưu họ tên + email khi bấm
-     "Bắt đầu"), submit_score (gửi lượt chơi, máy chủ tự tính điểm và thứ hạng)
-     và get_leaderboard (email đã được che sẵn ở máy chủ). */
+     Trình duyệt chỉ gọi 3 hàm RPC: register_player (lưu họ tên khi bấm "Bắt đầu"),
+     submit_score (gửi lượt chơi, máy chủ tự tính điểm và thứ hạng) và
+     get_leaderboard. Người chơi được nhận diện bằng mã thiết bị (deviceId). */
   var CONFIG = window.APP_CONFIG || {};
   var API_URL = String(CONFIG.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   var API_KEY = String(CONFIG.SUPABASE_KEY || "").trim();
@@ -1970,7 +1962,8 @@
   var BOARD_HASH = "#bang-xep-hang";
   var REGISTER_TIMEOUT_MS = 8000;
   var PLAYER_KEY = "robotQuiz.player";
-  var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  var DEVICE_KEY = "robotQuiz.deviceId";
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   var MEDALS = ["🥇", "🥈", "🥉"];
 
   /* Chặn nhầm khóa bí mật (service_role / secret) – repo công khai nên lộ khóa là mất toàn quyền DB */
@@ -2014,33 +2007,45 @@
     try { localStorage.setItem(PLAYER_KEY, JSON.stringify(p)); } catch (e) { /* trình duyệt chặn lưu: bỏ qua */ }
   }
 
-  var player = loadPlayer();   // { name, email } của người đang chơi
+  function newUuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    var b = crypto.getRandomValues(new Uint8Array(16));   // dự phòng khi trang không chạy qua https
+    b[6] = (b[6] & 15) | 64;
+    b[8] = (b[8] & 63) | 128;
+    var h = Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join("");
+    return h.slice(0, 8) + "-" + h.slice(8, 12) + "-" + h.slice(12, 16) + "-" + h.slice(16, 20) + "-" + h.slice(20);
+  }
+
+  /* Mã thiết bị: sinh một lần, lưu trong trình duyệt. Cùng máy chơi lại thì thay kết quả cũ */
+  function loadDeviceId() {
+    var id = null;
+    try { id = localStorage.getItem(DEVICE_KEY); } catch (e) { /* bị chặn lưu: dùng mã tạm cho phiên này */ }
+    if (!UUID_RE.test(id || "")) {
+      id = newUuid();
+      try { localStorage.setItem(DEVICE_KEY, id); } catch (e) { /* bỏ qua */ }
+    }
+    return id;
+  }
+
+  var deviceId = loadDeviceId();
+  var player = loadPlayer();   // { name } của người đang chơi
   var registering = false;     // đang chờ máy chủ lưu người chơi: chặn bấm "Bắt đầu" lần nữa
   var btnStartLabel = $("btnStart").textContent;
   var lastSubmit = null;       // tham số lượt gửi gần nhất, dùng cho nút "Gửi lại"
-  var myRank = null;           // { rank, name } để tô sáng dòng của mình trên bảng xếp hạng
   var boardTimer = 0;
   var boardLoading = false;
   var boardBackTo = "intro";
   var boardScrollToMe = false;
 
-  if (player) {
-    els.playerName.value = player.name || "";
-    els.playerEmail.value = player.email || "";
-  }
+  if (player) els.playerName.value = player.name || "";
 
   function readLogin() {
     var name = els.playerName.value.replace(/\s+/g, " ").trim();
-    var email = els.playerEmail.value.trim().toLowerCase();
-    var field = null;
-    var error = "";
-    if (name.length < 2) { field = els.playerName; error = "Bạn hãy nhập họ và tên nhé!"; }
-    else if (!EMAIL_RE.test(email)) { field = els.playerEmail; error = "Email chưa đúng định dạng, ví dụ: ten@gmail.com"; }
-    els.playerName.setAttribute("aria-invalid", String(field === els.playerName));
-    els.playerEmail.setAttribute("aria-invalid", String(field === els.playerEmail));
-    els.loginError.textContent = error;
-    if (field) { field.focus(); return null; }
-    return { name: name, email: email };
+    var ok = name.length >= 2;
+    els.playerName.setAttribute("aria-invalid", String(!ok));
+    els.loginError.textContent = ok ? "" : "Bạn hãy nhập họ và tên nhé!";
+    if (!ok) { els.playerName.focus(); return null; }
+    return { name: name };
   }
 
   function setRegistering(on) {
@@ -2050,19 +2055,18 @@
     btn.classList.toggle("btn-pulse", !on);
     btn.textContent = on ? "⏳ Đang lưu thông tin…" : btnStartLabel;
     els.playerName.readOnly = on;
-    els.playerEmail.readOnly = on;
     els.loginForm.setAttribute("aria-busy", String(on));
   }
 
-  /* Lưu họ tên + email lên Supabase; chỉ khi máy chủ xác nhận mới vào trạm 1 */
+  /* Lưu họ tên lên Supabase; chỉ khi máy chủ xác nhận mới vào trạm 1 */
   function registerAndStart(p) {
     setRegistering(true);
     els.loginError.textContent = "";
-    rpc("register_player", { p_email: p.email, p_full_name: p.name }, REGISTER_TIMEOUT_MS).then(function (rows) {
+    rpc("register_player", { p_player_id: deviceId, p_full_name: p.name }, REGISTER_TIMEOUT_MS).then(function (rows) {
       var saved = rows && rows[0];
       if (!saved) throw new Error("máy chủ không xác nhận đã lưu");
       setRegistering(false);
-      player = { name: saved.full_name, email: saved.email };
+      player = { name: saved.full_name };
       savePlayer(player);
       sfx.click();
       startGame();
@@ -2087,7 +2091,6 @@
       var r = rows && rows[0];
       if (!r) throw new Error("máy chủ không trả về thứ hạng");
       if (sent !== lastSubmit) return;
-      myRank = { rank: r.rank, name: sent.p_full_name };
       setRankStatus("ok", "🏆 Lượt này " + r.points + " điểm – hạng #" + r.rank + "/" + r.total_players, false);
     }).catch(function (err) {
       if (sent !== lastSubmit) return;
@@ -2116,12 +2119,10 @@
       els.boardList.appendChild(node("li", "board-empty", "Chưa có ai hoàn thành – hãy là người đầu tiên! 🚀"));
     }
     rows.forEach(function (r) {
-      var isMe = myRank && r.rank === myRank.rank && r.full_name === myRank.name;
-      var li = node("li", "board-row" + (r.rank <= 3 ? " top" + r.rank : "") + (isMe ? " me" : ""));
+      var li = node("li", "board-row" + (r.rank <= 3 ? " top" + r.rank : "") + (r.is_me ? " me" : ""));
       li.appendChild(node("span", "board-rank", MEDALS[r.rank - 1] || "#" + r.rank));
       var who = node("span", "board-who");
       who.appendChild(node("span", "board-name", r.full_name));
-      who.appendChild(node("span", "board-email", r.email_masked));
       li.appendChild(who);
       var sc = node("span", "board-score");
       sc.appendChild(node("span", "board-points", r.points));
@@ -2140,7 +2141,7 @@
   function loadBoard() {
     if (boardLoading) return;
     boardLoading = true;
-    rpc("get_leaderboard", { p_limit: BOARD_LIMIT }).then(renderBoard).catch(function (err) {
+    rpc("get_leaderboard", { p_player_id: deviceId, p_limit: BOARD_LIMIT }).then(renderBoard).catch(function (err) {
       els.boardMeta.textContent = "⚠️ Không tải được bảng xếp hạng: " + err.message + ".";
     }).then(function () { boardLoading = false; });
   }
@@ -2170,11 +2171,9 @@
     if (!p) { sfx.wrong(); return; }
     registerAndStart(p);
   });
-  [els.playerName, els.playerEmail].forEach(function (input) {
-    input.addEventListener("input", function () {
-      input.removeAttribute("aria-invalid");
-      els.loginError.textContent = "";
-    });
+  els.playerName.addEventListener("input", function () {
+    els.playerName.removeAttribute("aria-invalid");
+    els.loginError.textContent = "";
   });
   els.btnNext.addEventListener("click", nextStation);
   els.btnRetrySubmit.addEventListener("click", function () { sfx.click(); submitResult(); });
