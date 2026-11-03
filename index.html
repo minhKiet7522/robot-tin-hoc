@@ -2126,7 +2126,7 @@
       li.appendChild(who);
       var sc = node("span", "board-score");
       sc.appendChild(node("span", "board-points", r.points));
-      sc.appendChild(node("span", "board-detail", "✅ " + r.first_try + "/" + r.stations + " · ⏱ " + formatDuration(r.duration_ms)));
+      sc.appendChild(node("span", "board-detail", "⏱ " + formatDuration(r.duration_ms)));
       li.appendChild(sc);
       els.boardList.appendChild(li);
     });
