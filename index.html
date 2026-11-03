@@ -1,0 +1,2144 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Nạp Năng Lượng Cho Robot Tin Học – Cyber Robot Adventure</title>
+<style>
+  :root {
+    --bg: #060a1a;
+    --bg-2: #0b1330;
+    --panel: rgba(14, 22, 54, 0.8);
+    --panel-border: rgba(34, 228, 255, 0.28);
+    --cyan: #22e4ff;
+    --green: #39ff9f;
+    --teal: #5effc8;
+    --red: #ff4d6d;
+    --orange: #ff9f43;
+    --yellow: #ffd23f;
+    --violet: #a46bff;
+    --pink: #ff6bd5;
+    --text: #e8f1ff;
+    --muted: #a3b3d6;
+    --radius: 1.1em;
+    --font: Inter, Roboto, "Segoe UI", Arial, sans-serif;
+    --app-pad: clamp(8px, 2vmin, 28px);
+    /* Cỡ chữ gốc co giãn theo cả chiều rộng lẫn chiều cao màn hình */
+    --fs: clamp(12px, 0.75vw + 1vh + 2px, 28px);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    font-family: var(--font);
+    color: var(--text);
+    background:
+      radial-gradient(circle at 15% 10%, rgba(34, 228, 255, 0.16), transparent 42%),
+      radial-gradient(circle at 85% 90%, rgba(164, 107, 255, 0.2), transparent 45%),
+      radial-gradient(circle at 50% 50%, var(--bg-2), var(--bg) 75%);
+    background-color: var(--bg);
+    line-height: 1.45;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(34, 228, 255, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 228, 255, 0.07) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(circle at center, #000 30%, transparent 80%);
+    mask-image: radial-gradient(circle at center, #000 30%, transparent 80%);
+    z-index: 0;
+  }
+
+  button { font: inherit; color: inherit; }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 1680px;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0 auto;
+    padding: var(--app-pad);
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ---------- Screens ---------- */
+  .screen {
+    --s: 1; /* hệ số thu phóng: chỉ tính lại khi bắt đầu chơi hoặc đổi kích thước cửa sổ */
+    display: none;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    font-size: calc(var(--fs) * var(--s));
+  }
+  .screen.active { display: flex; animation: screenIn 0.5s ease both; }
+
+  /* Bản sao vô hình dùng để đo kích thước, không bao giờ hiển thị */
+  .screen.measure-clone {
+    position: absolute;
+    inset: var(--app-pad);
+    visibility: hidden;
+    pointer-events: none;
+    animation: none !important;
+    transition: none !important;
+  }
+  .measure-clone *, .measure-clone *::before, .measure-clone *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  @keyframes screenIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset, 0 20px 60px rgba(0, 0, 0, 0.45), 0 0 40px rgba(34, 228, 255, 0.08);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .is-hidden { visibility: hidden; opacity: 0; }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    padding: 0.75em 1.6em;
+    border: none;
+    border-radius: 999px;
+    font-weight: 800;
+    font-size: 1.05em;
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    color: #04101f;
+    background: linear-gradient(135deg, var(--cyan), var(--green));
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15) inset, 0 8px 28px rgba(34, 228, 255, 0.45);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    flex: none;
+  }
+  .btn::after {
+    content: "";
+    position: absolute;
+    top: 0; left: -60%;
+    width: 40%; height: 100%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    transform: skewX(-20deg);
+    animation: shine 3s ease-in-out infinite;
+  }
+  @keyframes shine {
+    0%, 60% { left: -60%; }
+    100% { left: 130%; }
+  }
+  .btn:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25) inset, 0 12px 36px rgba(57, 255, 159, 0.55); }
+  .btn:active { transform: scale(0.98); }
+  .btn:focus-visible, .answer:focus-visible, .sound-toggle:focus-visible {
+    outline: 3px solid var(--yellow);
+    outline-offset: 3px;
+  }
+  .btn-big { font-size: 1.2em; padding: 0.85em 2em; }
+  .btn-pulse { animation: btnPulse 1.8s ease-in-out infinite; }
+  @keyframes btnPulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15) inset, 0 8px 28px rgba(34, 228, 255, 0.45), 0 0 0 0 rgba(57, 255, 159, 0.5); }
+    50% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15) inset, 0 8px 28px rgba(34, 228, 255, 0.45), 0 0 0 12px rgba(57, 255, 159, 0); }
+  }
+
+  .sound-toggle {
+    position: fixed;
+    top: clamp(10px, 2.2vmin, 30px);
+    right: clamp(10px, 2.2vmin, 30px);
+    z-index: 20;
+    width: clamp(34px, 5vmin, 52px);
+    height: clamp(34px, 5vmin, 52px);
+    border-radius: 50%;
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    font-size: clamp(16px, 2.4vmin, 24px);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .sound-toggle:hover { transform: scale(1.08); box-shadow: 0 0 18px rgba(34, 228, 255, 0.45); }
+
+  /* ---------- Robot ---------- */
+  .robot-slot {
+    --robot-h: 200px;
+    position: relative;
+    flex: none;
+    height: var(--robot-h);
+    aspect-ratio: 200 / 230;
+    display: grid;
+    place-items: center;
+  }
+  .robot-slot svg { width: 100%; height: 100%; overflow: visible; display: block; }
+  .robot-float { width: 100%; height: 100%; animation: bob 3.2s ease-in-out infinite; position: relative; z-index: 1; }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4%); }
+  }
+  .robot-halo {
+    position: absolute;
+    inset: 8%;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(34, 228, 255, 0.28), transparent 65%);
+    filter: blur(6px);
+    transition: background 0.4s;
+  }
+
+  .robot-slot .eyes-happy,
+  .robot-slot .eyes-confused,
+  .robot-slot .mouth-happy,
+  .robot-slot .mouth-confused,
+  .robot-slot .cheeks,
+  .robot-slot .smoke,
+  .robot-slot .sweat { display: none; }
+
+  .robot-slot .eye-idle {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: blink 4s infinite;
+  }
+  @keyframes blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    95% { transform: scaleY(0.1); }
+  }
+
+  .robot-slot .antenna-bulb { fill: var(--cyan); animation: bulb 1.6s ease-in-out infinite; }
+  @keyframes bulb { 50% { opacity: 0.45; } }
+
+  .robot-slot .arm {
+    transform-box: fill-box;
+    transform-origin: 50% 8%;
+    transition: transform 0.4s ease;
+  }
+
+  /* Chào đón: vẫy tay */
+  .robot-slot[data-state="welcome"] .arm-right { animation: wave 1.4s ease-in-out infinite; }
+  @keyframes wave {
+    0%, 100% { transform: rotate(-150deg); }
+    50% { transform: rotate(-115deg); }
+  }
+
+  /* Vui sướng */
+  .robot-slot[data-state="happy"] .eyes-idle,
+  .robot-slot[data-state="super"] .eyes-idle,
+  .robot-slot[data-state="happy"] .mouth-idle,
+  .robot-slot[data-state="super"] .mouth-idle { display: none; }
+  .robot-slot[data-state="happy"] .eyes-happy,
+  .robot-slot[data-state="super"] .eyes-happy,
+  .robot-slot[data-state="happy"] .mouth-happy,
+  .robot-slot[data-state="super"] .mouth-happy,
+  .robot-slot[data-state="happy"] .cheeks,
+  .robot-slot[data-state="super"] .cheeks { display: inline; }
+  .robot-slot[data-state="happy"] .antenna-bulb,
+  .robot-slot[data-state="super"] .antenna-bulb { fill: var(--green); }
+  .robot-slot[data-state="happy"] .robot-halo { background: radial-gradient(circle, rgba(57, 255, 159, 0.45), transparent 65%); }
+  .robot-slot[data-state="happy"] svg { animation: hop 0.6s ease 2; filter: drop-shadow(0 0 14px rgba(57, 255, 159, 0.75)); }
+  .robot-slot[data-state="happy"] .arm-left,
+  .robot-slot[data-state="super"] .arm-left { transform: rotate(140deg); }
+  .robot-slot[data-state="happy"] .arm-right,
+  .robot-slot[data-state="super"] .arm-right { transform: rotate(-140deg); }
+  @keyframes hop {
+    0%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-6%) scale(1.04); }
+  }
+
+  /* Siêu phát sáng khi sạc đầy 100% */
+  .robot-slot[data-state="super"] svg { animation: superGlow 1.6s ease-in-out infinite, hop 0.8s ease infinite; }
+  .robot-slot[data-state="super"] .robot-halo {
+    inset: -6%;
+    background: conic-gradient(from 0deg, rgba(34, 228, 255, 0.55), rgba(57, 255, 159, 0.55), rgba(255, 210, 63, 0.55), rgba(255, 107, 213, 0.55), rgba(34, 228, 255, 0.55));
+    filter: blur(28px);
+    animation: spin 4s linear infinite;
+  }
+  @keyframes superGlow {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(57, 255, 159, 0.9)) drop-shadow(0 0 30px rgba(34, 228, 255, 0.7)); }
+    50% { filter: drop-shadow(0 0 22px rgba(255, 210, 63, 0.95)) drop-shadow(0 0 48px rgba(255, 107, 213, 0.7)); }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Lúng túng / bốc khói */
+  .robot-slot[data-state="confused"] .eyes-idle,
+  .robot-slot[data-state="confused"] .mouth-idle { display: none; }
+  .robot-slot[data-state="confused"] .eyes-confused,
+  .robot-slot[data-state="confused"] .mouth-confused,
+  .robot-slot[data-state="confused"] .smoke,
+  .robot-slot[data-state="confused"] .sweat { display: inline; }
+  .robot-slot[data-state="confused"] .antenna-bulb { fill: var(--red); animation: bulb 0.35s infinite; }
+  .robot-slot[data-state="confused"] .robot-halo { background: radial-gradient(circle, rgba(255, 77, 109, 0.35), transparent 65%); }
+  .robot-slot[data-state="confused"] svg { animation: jitter 0.12s linear 7; }
+  .robot-slot[data-state="confused"] .arm-left { transform: rotate(25deg); }
+  .robot-slot[data-state="confused"] .arm-right { transform: rotate(-25deg); }
+  @keyframes jitter {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    25% { transform: translate(-2%, 0.5%) rotate(-2deg); }
+    75% { transform: translate(2%, -0.5%) rotate(2deg); }
+  }
+  .robot-slot .puff {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: puff 1.4s ease-out infinite;
+  }
+  .robot-slot .puff:nth-child(2) { animation-delay: 0.45s; }
+  .robot-slot .puff:nth-child(3) { animation-delay: 0.9s; }
+  @keyframes puff {
+    0% { transform: translateY(10px) scale(0.4); opacity: 0; }
+    20% { opacity: 0.85; }
+    100% { transform: translateY(-34px) scale(1.7); opacity: 0; }
+  }
+  .robot-slot .sweat { animation: sweat 1s ease-in infinite; transform-box: fill-box; }
+  @keyframes sweat {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(14px); opacity: 0; }
+  }
+  .robot-slot .chest-fill {
+    transform-box: fill-box;
+    transform-origin: left center;
+    transition: transform 0.9s cubic-bezier(.2, .9, .3, 1.2);
+  }
+
+  /* ---------- Battery: 4 nấc pin riêng biệt ---------- */
+  .battery-wrap { position: relative; width: 100%; }
+  .battery {
+    --c1: var(--red);
+    --c2: #ff7a8f;
+    --glow: rgba(255, 77, 109, 0.35);
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+  .battery[data-level="25"]  { --c1: var(--orange); --c2: #ffc078; --glow: rgba(255, 159, 67, 0.6); }
+  .battery[data-level="50"]  { --c1: var(--yellow); --c2: #fff09a; --glow: rgba(255, 210, 63, 0.6); }
+  .battery[data-level="75"]  { --c1: var(--cyan);   --c2: #9af3ff; --glow: rgba(34, 228, 255, 0.65); }
+  .battery[data-level="100"] { --c1: var(--green);  --c2: #b4ffd9; --glow: rgba(57, 255, 159, 0.8); }
+
+  .battery-body {
+    position: relative;
+    flex: 1;
+    height: 2.4em;
+    border-radius: 0.6em;
+    border: 0.16em solid rgba(232, 241, 255, 0.85);
+    padding: 0.22em;
+    background: rgba(3, 7, 20, 0.9);
+    box-shadow: 0 0 16px var(--glow), inset 0 0 12px rgba(0, 0, 0, 0.8);
+    transition: box-shadow 0.6s;
+  }
+  .battery-cells {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.22em;
+    height: 100%;
+  }
+  .battery-cell {
+    border-radius: 0.3em;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    transition: background 0.4s, box-shadow 0.4s;
+  }
+  .battery-cell.on {
+    background:
+      repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.24) 0 8px, transparent 8px 16px),
+      linear-gradient(180deg, var(--c2), var(--c1));
+    background-size: 22px 22px, 100% 100%;
+    box-shadow: 0 0 10px var(--glow), 0 0 22px var(--glow), inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    animation: charge 1s linear infinite, cellOn 0.6s cubic-bezier(.2, 1.5, .4, 1);
+  }
+  @keyframes charge { to { background-position: 22px 0, 0 0; } }
+  @keyframes cellOn {
+    0% { transform: scaleY(0.2); filter: brightness(2.2); }
+    100% { transform: scaleY(1); filter: brightness(1); }
+  }
+  .battery[data-level="100"] .battery-cell.on { animation: charge 1s linear infinite, fullPulse 1.2s ease-in-out infinite; }
+  .battery[data-level="100"] .battery-body { animation: bodyPulse 1.2s ease-in-out infinite; border-color: #d8ffee; }
+  @keyframes fullPulse {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.35); }
+  }
+  @keyframes bodyPulse {
+    0%, 100% { box-shadow: 0 0 14px rgba(57, 255, 159, 0.6), inset 0 0 12px rgba(0, 0, 0, 0.8); }
+    50% { box-shadow: 0 0 30px rgba(57, 255, 159, 1), 0 0 60px rgba(57, 255, 159, 0.45), inset 0 0 12px rgba(0, 0, 0, 0.8); }
+  }
+  .battery-label {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 1.05em;
+    letter-spacing: 0.04em;
+    color: #fff;
+    text-shadow: 0 0 6px #000, 0 0 10px #000, 0 0 2px #000;
+    pointer-events: none;
+  }
+  .battery-cap {
+    width: 0.5em;
+    height: 1.1em;
+    margin-left: 0.15em;
+    border-radius: 0 0.3em 0.3em 0;
+    background: rgba(232, 241, 255, 0.85);
+  }
+  .battery-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78em;
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.3em;
+  }
+
+  .energy-pop {
+    position: absolute;
+    right: 12%;
+    bottom: 0.2em;
+    font-weight: 900;
+    font-size: 1.3em;
+    color: var(--green);
+    text-shadow: 0 0 12px rgba(57, 255, 159, 0.9), 0 0 3px #000;
+    pointer-events: none;
+    animation: pop 1.4s ease-out forwards;
+    z-index: 2;
+  }
+  @keyframes pop {
+    0% { transform: translateY(6px) scale(0.6); opacity: 0; }
+    20% { transform: translateY(0) scale(1.2); opacity: 1; }
+    100% { transform: translateY(-1.6em) scale(1); opacity: 0; }
+  }
+
+  /* ---------- Toast năng lượng của robot ---------- */
+  .toast {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2em;
+    width: 100%;
+    min-height: 3.9em;
+    padding: 0.6em 0.9em;
+    border-radius: 0.95em;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(34, 228, 255, 0.12), rgba(164, 107, 255, 0.1));
+    border: 1px solid rgba(34, 228, 255, 0.45);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    transition: background 0.35s, border-color 0.35s, box-shadow 0.35s;
+  }
+  .toast-title {
+    display: block;
+    font-weight: 900;
+    font-size: 1em;
+    line-height: 1.3;
+    color: var(--text);
+    text-wrap: balance;
+  }
+  .toast-sub {
+    display: block;
+    font-weight: 500;
+    font-size: 0.86em;
+    line-height: 1.35;
+    color: var(--muted);
+    text-wrap: balance;
+  }
+  .toast .hl { color: var(--yellow); text-shadow: 0 0 10px rgba(255, 210, 63, 0.7); white-space: nowrap; }
+  .toast.ok {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.24), rgba(34, 228, 255, 0.1));
+    border-color: rgba(57, 255, 159, 0.75);
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.4), inset 0 0 14px rgba(57, 255, 159, 0.08);
+  }
+  .toast.ok .toast-title { color: var(--teal); text-shadow: 0 0 10px rgba(57, 255, 159, 0.45); }
+  .toast.ok .toast-sub { color: #d6fff0; }
+  .toast.bad {
+    background: linear-gradient(135deg, rgba(255, 77, 109, 0.18), rgba(255, 159, 67, 0.08));
+    border-color: rgba(255, 77, 109, 0.7);
+    box-shadow: 0 0 15px rgba(255, 77, 109, 0.3);
+  }
+  .toast.bad .toast-title { color: #ffb3c0; }
+  .toast.bad .toast-sub { color: #ffe1e6; }
+  .toast.anim { animation: toastIn 0.55s cubic-bezier(.2, 1.4, .4, 1) both; }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.92); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ---------- Intro & Result (bố cục chung) ---------- */
+  .tag {
+    display: inline-block;
+    padding: 0.3em 0.9em;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: rgba(34, 228, 255, 0.08);
+    color: var(--cyan);
+    font-size: 0.75em;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .hero {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8em 3em;
+    padding: 1.2em 1.4em;
+    text-align: center;
+  }
+  .hero .robot-slot { --robot-h: calc(clamp(70px, 24vh, 340px) * var(--s)); }
+  .hero-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.65em;
+    max-width: 46em;
+    min-width: 0;
+  }
+  .game-title {
+    font-size: 2.3em;
+    line-height: 1.1;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    text-wrap: balance;
+    background: linear-gradient(90deg, var(--cyan), var(--green) 45%, var(--yellow) 70%, var(--pink));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 0 18px rgba(34, 228, 255, 0.35));
+    animation: titleFlow 6s linear infinite;
+  }
+  @keyframes titleFlow { to { background-position: 200% center; } }
+  .subtitle { color: var(--violet); font-weight: 800; font-size: 0.95em; letter-spacing: 0.1em; text-transform: uppercase; text-wrap: balance; }
+  .story { color: var(--muted); font-size: 1em; line-height: 1.5; text-wrap: pretty; max-width: 40em; }
+  .story strong { color: var(--text); }
+  .stations {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.45em;
+    width: min(100%, 26em);
+  }
+  .station-chip {
+    padding: 0.4em 0.2em;
+    border-radius: 0.7em;
+    border: 1px dashed rgba(34, 228, 255, 0.45);
+    font-size: 0.8em;
+    font-weight: 700;
+    color: var(--cyan);
+    background: rgba(34, 228, 255, 0.05);
+    text-align: center;
+  }
+  .station-chip span { display: block; font-size: 1.35em; line-height: 1.2; }
+  .hero .battery-wrap { width: min(100%, 26em); text-align: left; }
+  .hint { color: var(--muted); font-size: 0.78em; text-wrap: balance; }
+
+  .result-title {
+    font-size: 2.2em;
+    font-weight: 900;
+    line-height: 1.12;
+    text-wrap: balance;
+    background: linear-gradient(90deg, var(--green), var(--yellow), var(--pink), var(--cyan));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: titleFlow 3s linear infinite;
+  }
+  .result-msg { color: var(--muted); font-size: 1em; max-width: 36em; text-wrap: pretty; }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6em;
+    width: min(100%, 32em);
+  }
+  .stat {
+    padding: 0.6em 0.4em;
+    border-radius: 0.9em;
+    border: 1px solid var(--panel-border);
+    background: rgba(34, 228, 255, 0.06);
+    text-align: center;
+  }
+  .stat-value { font-size: 1.9em; font-weight: 900; color: var(--cyan); line-height: 1.1; text-shadow: 0 0 16px rgba(34, 228, 255, 0.6); }
+  .stat:nth-child(2) .stat-value { color: var(--orange); text-shadow: 0 0 16px rgba(255, 159, 67, 0.6); }
+  .stat:nth-child(3) .stat-value { color: var(--green); text-shadow: 0 0 16px rgba(57, 255, 159, 0.6); }
+  .stat-label { font-size: 0.72em; color: var(--muted); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; text-wrap: balance; line-height: 1.3; }
+  .result .battery-wrap { width: min(100%, 32em); }
+  .review {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4em;
+    width: min(100%, 32em);
+    text-align: left;
+  }
+  .review li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.4em 0.75em;
+    border-radius: 0.7em;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.85em;
+  }
+  .review .ok { color: var(--green); font-weight: 800; white-space: nowrap; }
+  .review .retry { color: var(--yellow); font-weight: 800; white-space: nowrap; }
+
+  /* ---------- Quiz ---------- */
+  .quiz-layout {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.7em;
+    overflow: hidden;
+  }
+  .status-panel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5em 0.9em;
+    padding: 0.6em 3.2rem 0.6em 0.9em;
+  }
+  .status-panel .robot-slot { --robot-h: calc(clamp(56px, 12vh, 150px) * var(--s)); }
+  .status-info { display: flex; flex-direction: column; gap: 0.5em; min-width: 0; }
+
+  .quiz-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75em;
+    padding: 1em 1.2em;
+  }
+  .quiz-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5em;
+    flex: none;
+  }
+  .station-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.35em 0.95em;
+    border-radius: 999px;
+    font-weight: 900;
+    font-size: 0.9em;
+    letter-spacing: 0.06em;
+    color: #04101f;
+    background: linear-gradient(135deg, var(--cyan), var(--violet));
+    box-shadow: 0 0 18px rgba(164, 107, 255, 0.5);
+  }
+  .progress-dots { display: flex; gap: 0.45em; }
+  .progress-dots i {
+    width: 0.85em;
+    height: 0.85em;
+    border-radius: 50%;
+    border: 2px solid rgba(154, 171, 207, 0.6);
+    transition: all 0.3s;
+  }
+  .progress-dots i.current { border-color: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+  .progress-dots i.done-ok { background: var(--green); border-color: var(--green); box-shadow: 0 0 10px var(--green); }
+  .progress-dots i.done-retry { background: var(--yellow); border-color: var(--yellow); box-shadow: 0 0 10px var(--yellow); }
+
+  /* Thân câu hỏi: căn giữa theo chiều dọc trong không gian còn lại */
+  .quiz-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.85em;
+  }
+
+  /* Chuẩn chung cho tiêu đề câu hỏi ở mọi trạm */
+  .question {
+    width: 100%;
+    max-width: min(92%, 40em);
+    margin: 0 auto;
+    text-align: center;
+    font-size: 1.45em;
+    font-weight: 800;
+    line-height: 1.42;
+    text-wrap: balance;
+    flex: none;
+  }
+  .question.anim { animation: screenIn 0.45s ease both; }
+
+  .answers {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: 1fr; /* 4 nút luôn cao bằng nhau */
+    gap: 0.65em;
+    flex: none;
+  }
+  .answer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0;
+    width: 100%;
+    min-height: 3.4em;
+    padding: 0.6em 1em 0.6em 0.75em;
+    text-align: left;
+    font-size: 1.05em;
+    font-weight: 600;
+    line-height: 1.4;
+    border-radius: 0.85em;
+    border: 2px solid rgba(34, 228, 255, 0.35);
+    background: linear-gradient(180deg, rgba(27, 41, 92, 0.92), rgba(13, 21, 52, 0.92));
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease, opacity 0.3s;
+  }
+  .answer.anim { animation: screenIn 0.45s ease both; }
+  .answer.anim:nth-child(2) { animation-delay: 0.06s; }
+  .answer.anim:nth-child(3) { animation-delay: 0.12s; }
+  .answer.anim:nth-child(4) { animation-delay: 0.18s; }
+  .answer:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 1px var(--cyan), 0 10px 30px rgba(34, 228, 255, 0.3);
+    background: linear-gradient(180deg, rgba(34, 58, 128, 0.95), rgba(17, 29, 70, 0.95));
+  }
+  .answer:disabled { cursor: default; }
+  .answer-key {
+    flex: none;
+    width: 2.25em;
+    min-width: 2.25em;
+    height: 2.25em;
+    display: grid;
+    place-items: center;
+    border-radius: 0.6em;
+    font-weight: 900;
+    font-size: 1em;
+    line-height: 1;
+    color: var(--cyan);
+    background: rgba(34, 228, 255, 0.12);
+    border: 1.5px solid rgba(34, 228, 255, 0.6);
+    box-shadow: 0 0 10px rgba(34, 228, 255, 0.2);
+    transition: all 0.25s;
+  }
+  .answer-text {
+    flex: 1;
+    min-width: 0;
+    padding-left: 0.8em;
+    text-wrap: pretty;
+    overflow-wrap: break-word;
+    hyphens: none;
+  }
+  .answer-icon { flex: none; width: 1.4em; margin-left: 0.4em; text-align: center; font-size: 1.1em; }
+
+  .answer.correct {
+    border-color: var(--green);
+    background: linear-gradient(180deg, #11905a, #0a5c3a);
+    box-shadow: 0 0 0 2px var(--green), 0 0 30px rgba(57, 255, 159, 0.6);
+    animation: correctPop 0.5s ease;
+  }
+  .answer.correct .answer-key { background: var(--green); color: #04201a; border-color: var(--green); }
+  .answer.wrong {
+    border-color: var(--red);
+    background: linear-gradient(180deg, rgba(154, 35, 64, 0.85), rgba(94, 19, 36, 0.85));
+    box-shadow: 0 0 18px rgba(255, 77, 109, 0.45);
+    animation: shake 0.45s ease;
+  }
+  .answer.wrong .answer-key { background: var(--red); color: #fff; border-color: var(--red); }
+  .answer.wrong .answer-text { text-decoration: line-through; text-decoration-color: rgba(255, 255, 255, 0.5); }
+  .answer.dim { opacity: 0.45; }
+  @keyframes correctPop { 50% { transform: scale(1.03); } }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px); }
+    40% { transform: translateX(6px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  /* Vùng thông báo có kích thước cố định: thông báo thử lại & giải thích
+     xếp chồng cùng một ô, luôn chiếm sẵn chỗ để không dồn bố cục */
+  .msg-area {
+    display: grid;
+    flex: none;
+  }
+  .msg-area > * { grid-area: 1 / 1; }
+
+  .retry-msg {
+    align-self: center;
+    justify-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.5em 1.1em;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 159, 67, 0.65);
+    background: rgba(255, 159, 67, 0.12);
+    box-shadow: 0 0 14px rgba(255, 159, 67, 0.25);
+    color: #ffd9b0;
+    font-weight: 700;
+    font-size: 0.95em;
+    text-align: center;
+    text-wrap: balance;
+  }
+  .retry-msg.anim { animation: nudge 0.45s ease; }
+  @keyframes nudge {
+    0% { transform: scale(0.9); opacity: 0; }
+    60% { transform: scale(1.04); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+
+  .feedback {
+    padding: 0.75em 1.1em;
+    border-radius: 0.9em;
+    border-left: 0.35em solid var(--green);
+    background: rgba(57, 255, 159, 0.08);
+  }
+  .feedback.anim { animation: screenIn 0.45s ease both; }
+  .feedback-result { font-weight: 900; font-size: 1em; color: var(--green); margin-bottom: 0.2em; text-wrap: balance; }
+  .feedback-title {
+    font-weight: 800;
+    color: var(--cyan);
+    font-size: 0.76em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.15em;
+  }
+  .feedback-text { font-size: 0.98em; line-height: 1.45; text-wrap: pretty; }
+
+  .next-row { display: flex; justify-content: center; flex: none; }
+  .next-row.anim { animation: screenIn 0.45s ease both; }
+
+  /* ---------- Đăng nhập (email + họ tên) ---------- */
+  .login-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5em 0.7em;
+    width: min(100%, 30em);
+    text-align: left;
+  }
+  .field { display: flex; flex-direction: column; gap: 0.25em; min-width: 0; }
+  .field label {
+    font-size: 0.72em;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .field input {
+    width: 100%;
+    font: inherit;
+    font-size: 1em;
+    color: var(--text);
+    padding: 0.6em 0.85em;
+    border-radius: 0.75em;
+    border: 1.5px solid rgba(34, 228, 255, 0.4);
+    background: rgba(3, 7, 20, 0.75);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field input::placeholder { color: rgba(163, 179, 214, 0.55); }
+  .field input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34, 228, 255, 0.25); }
+  .field input[aria-invalid="true"] { border-color: var(--red); box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.2); }
+  .form-error { grid-column: 1 / -1; min-height: 1.35em; font-size: 0.82em; font-weight: 700; color: #ffb3c0; }
+  .login-form .btn { grid-column: 1 / -1; justify-self: center; }
+
+  .btn-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.6em; flex: none; }
+  .btn-ghost {
+    color: var(--text);
+    background: rgba(34, 228, 255, 0.08);
+    box-shadow: 0 0 0 2px rgba(34, 228, 255, 0.55) inset;
+  }
+  .btn-ghost:hover { box-shadow: 0 0 0 2px var(--cyan) inset, 0 10px 30px rgba(34, 228, 255, 0.3); }
+
+  /* ---------- Trạng thái gửi điểm ở màn kết quả ---------- */
+  .rank-status {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3em 0.7em;
+    padding: 0.5em 1.1em;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: rgba(34, 228, 255, 0.06);
+    color: var(--muted);
+    font-weight: 800;
+    font-size: 0.95em;
+    text-wrap: balance;
+  }
+  .rank-status.ok {
+    color: var(--yellow);
+    border-color: rgba(255, 210, 63, 0.6);
+    background: rgba(255, 210, 63, 0.1);
+    text-shadow: 0 0 10px rgba(255, 210, 63, 0.45);
+  }
+  .rank-status.err { color: #ffb3c0; border-color: rgba(255, 77, 109, 0.6); background: rgba(255, 77, 109, 0.1); }
+  .link-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-weight: 900;
+    color: var(--cyan);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+  .link-btn:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+
+  /* ---------- Bảng xếp hạng ---------- */
+  .board {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7em;
+    padding: 1.2em 1.4em;
+  }
+  .board-head { display: flex; flex-direction: column; align-items: center; gap: 0.35em; text-align: center; flex: none; }
+  .board-title { font-size: 1.9em; }
+  .board-meta { color: var(--muted); font-size: 0.85em; text-wrap: balance; }
+  .board-cols, .board-list { width: min(100%, 48em); align-self: center; }
+  .board-cols, .board-row {
+    display: grid;
+    grid-template-columns: 3em minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.8em;
+    padding: 0.5em 0.9em;
+  }
+  /* Thụt lề bằng dòng bên dưới (padding của danh sách + viền dòng) để các cột thẳng hàng */
+  .board-cols { flex: none; padding: 0 calc(0.9em + 0.2em + 1px); }
+  .board-cols span {
+    font-size: 0.72em;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .board-cols span:first-child { text-align: center; }
+  .board-cols span:last-child { text-align: right; }
+  .board-list {
+    list-style: none;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    padding: 0.2em;
+    scrollbar-color: rgba(34, 228, 255, 0.4) transparent;
+  }
+  .board-row {
+    flex: none;
+    border-radius: 0.8em;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .board-row.top1 { border-color: rgba(255, 210, 63, 0.65); background: rgba(255, 210, 63, 0.09); }
+  .board-row.top2 { border-color: rgba(200, 215, 240, 0.55); background: rgba(200, 215, 240, 0.07); }
+  .board-row.top3 { border-color: rgba(255, 159, 67, 0.55); background: rgba(255, 159, 67, 0.07); }
+  .board-row.me { box-shadow: 0 0 0 2px var(--cyan), 0 0 18px rgba(34, 228, 255, 0.35); }
+  .board-rank { font-weight: 900; font-size: 1.15em; text-align: center; color: var(--cyan); }
+  .board-who { display: flex; flex-direction: column; min-width: 0; }
+  .board-name, .board-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .board-name { font-weight: 800; }
+  .board-email { font-size: 0.8em; color: var(--muted); }
+  .board-score { display: flex; flex-direction: column; align-items: flex-end; }
+  .board-points { font-weight: 900; font-size: 1.3em; line-height: 1.1; color: var(--green); text-shadow: 0 0 12px rgba(57, 255, 159, 0.5); }
+  .board-detail { font-size: 0.72em; color: var(--muted); white-space: nowrap; }
+  .board-empty { text-align: center; color: var(--muted); padding: 2em 1em; }
+
+  #fireworks {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 15;
+  }
+
+  /* ---------- Responsive ---------- */
+  /* Màn hình ngang: laptop, máy chiếu 16:9 & 4:3, tablet ngang */
+  @media (min-aspect-ratio: 5/4) and (min-width: 640px) {
+    .hero { flex-direction: row; text-align: left; padding: 1.6em 2.4em; }
+    .hero-content { align-items: flex-start; }
+    .hero .robot-slot { --robot-h: calc(clamp(110px, 56vh, 500px) * var(--s)); }
+    .hero .login-form .btn { justify-self: start; }
+    .hero .btn-row { justify-content: flex-start; }
+  }
+
+  @media (min-aspect-ratio: 1/1) and (min-width: 640px) {
+    .quiz-layout {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 2.7fr);
+      grid-template-rows: minmax(0, 1fr);
+      gap: 1em;
+    }
+    .status-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: stretch;
+      gap: 0.9em;
+      padding: 1.2em 1em;
+      text-align: center;
+    }
+    .status-panel .robot-slot { --robot-h: calc(clamp(90px, 40vh, 420px) * var(--s)); align-self: center; }
+    .quiz-card { padding: 1.3em 1.7em; gap: 0.95em; }
+    .quiz-head { padding-right: 2.6rem; }
+    .question { font-size: 1.6em; }
+    .answers { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8em; }
+  }
+
+  @media (max-width: 420px) {
+    .stations { gap: 0.3em; }
+    .review { grid-template-columns: minmax(0, 1fr); }
+    .login-form { grid-template-columns: minmax(0, 1fr); }
+    .board { padding: 1em 0.8em; }
+    .board-cols, .board-row { grid-template-columns: 2.2em minmax(0, 1fr) auto; gap: 0.6em; padding-inline: 0.6em; }
+    .board-cols { padding-inline: calc(0.6em + 0.2em + 1px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<button class="sound-toggle" id="soundToggle" type="button" aria-label="Tắt âm thanh" title="Bật/Tắt âm thanh">🔊</button>
+<canvas id="fireworks" aria-hidden="true"></canvas>
+
+<main class="app" id="app">
+
+  <!-- ===== MÀN HÌNH BẮT ĐẦU ===== -->
+  <section class="screen active" id="screenIntro" aria-labelledby="introTitle">
+    <div class="panel hero" data-fit>
+      <div class="robot-slot" id="robotIntro" data-state="welcome"></div>
+      <div class="hero-content">
+        <span class="tag">Cyber Robot Adventure</span>
+        <h1 class="game-title" id="introTitle">NẠP NĂNG LƯỢNG CHO ROBOT TIN&nbsp;HỌC</h1>
+        <p class="subtitle">⚡ 4 trạm kiến thức – 100% năng&nbsp;lượng ⚡</p>
+        <p class="story">
+          Chú <strong>robot trợ giảng AI</strong> đang cạn năng lượng trước giờ lên lớp!
+          Hãy vượt qua <strong>4 trạm kiến thức trắc nghiệm</strong>. Mỗi câu trả lời đúng sẽ nạp thêm
+          <strong>25% pin</strong>. Sạc đầy <strong>100%</strong> để mở khóa <strong>chế độ trợ giảng hoàn&nbsp;chỉnh</strong>!
+        </p>
+        <div class="stations" aria-hidden="true">
+          <div class="station-chip"><span>🔋</span>Trạm 1</div>
+          <div class="station-chip"><span>💻</span>Trạm 2</div>
+          <div class="station-chip"><span>🤖</span>Trạm 3</div>
+          <div class="station-chip"><span>📝</span>Trạm 4</div>
+        </div>
+        <div class="battery-wrap">
+          <div class="battery-title"><span>Năng lượng robot</span><span>⚡</span></div>
+          <div class="battery" data-battery></div>
+        </div>
+        <form class="login-form" id="loginForm" novalidate>
+          <div class="field">
+            <label for="playerName">Họ và tên</label>
+            <input id="playerName" type="text" autocomplete="name" maxlength="80" placeholder="VD: Nguyễn Văn An" required>
+          </div>
+          <div class="field">
+            <label for="playerEmail">Email</label>
+            <input id="playerEmail" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="ten@gmail.com" required>
+          </div>
+          <p class="form-error" id="loginError" role="alert"></p>
+          <button class="btn btn-big btn-pulse" id="btnStart" type="submit">⚡ Bắt đầu nạp năng lượng</button>
+        </form>
+        <p class="hint">Email chỉ dùng để phân biệt người chơi và được che bớt trên bảng xếp&nbsp;hạng. Mẹo: dùng phím <strong>A, B, C, D</strong> (hoặc 1–4) để chọn đáp án, <strong>Enter</strong> để sang trạm&nbsp;mới.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== MÀN HÌNH CHƠI ===== -->
+  <section class="screen" id="screenQuiz" aria-label="Màn hình trả lời câu hỏi">
+    <div class="quiz-layout" data-fit>
+      <aside class="panel status-panel" data-fit>
+        <div class="robot-slot" id="robotQuiz" data-state="idle"></div>
+        <div class="status-info">
+          <div class="battery-wrap" id="quizBattery">
+            <div class="battery-title"><span>Pin robot</span><span>⚡</span></div>
+            <div class="battery" data-battery></div>
+          </div>
+          <div class="toast" id="toast" aria-live="polite">
+            <span class="toast-title" id="toastTitle"></span>
+            <span class="toast-sub" id="toastSub"></span>
+          </div>
+        </div>
+      </aside>
+
+      <article class="panel quiz-card" data-fit>
+        <div class="quiz-head">
+          <span class="station-badge" id="stationLabel">Trạm 1/4</span>
+          <div class="progress-dots" id="progressDots" aria-hidden="true"></div>
+        </div>
+
+        <div class="quiz-body" data-fit>
+          <h2 class="question" id="questionText"></h2>
+          <div class="answers" id="answers"></div>
+
+          <div class="msg-area">
+            <p class="retry-msg is-hidden" id="retryMsg" aria-live="assertive">🔁 Chưa chính xác, bạn hãy chọn lại phương án khác&nbsp;nhé!</p>
+            <div class="feedback is-hidden" id="feedback" aria-live="polite">
+              <p class="feedback-result" id="feedbackResult"></p>
+              <p class="feedback-title">📘 Giải thích sư phạm</p>
+              <p class="feedback-text" id="feedbackText"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="next-row is-hidden" id="nextRow">
+          <button class="btn" id="btnNext" type="button" tabindex="-1">Trạm tiếp theo ➜</button>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ===== MÀN HÌNH KẾT THÚC ===== -->
+  <section class="screen" id="screenResult" aria-labelledby="resultTitle">
+    <div class="panel hero result" data-fit>
+      <div class="robot-slot" id="robotResult" data-state="super"></div>
+      <div class="hero-content">
+        <span class="tag">Kết quả sạc năng lượng</span>
+        <h2 class="result-title" id="resultTitle">🎉 ROBOT ĐÃ SẠC ĐẦY&nbsp;100%!</h2>
+        <p class="result-msg" id="resultMsg"></p>
+        <div class="stats">
+          <div class="stat">
+            <div class="stat-value" id="statFirstTry">0/4</div>
+            <div class="stat-label">Đúng ngay lần đầu</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="statWrong">0</div>
+            <div class="stat-label">Lần chọn chưa đúng</div>
+          </div>
+          <div class="stat">
+            <div class="stat-value" id="statEnergy">0%</div>
+            <div class="stat-label">Pin đã sạc</div>
+          </div>
+        </div>
+        <div class="battery-wrap">
+          <div class="battery" data-battery></div>
+        </div>
+        <ul class="review" id="review"></ul>
+        <div class="rank-status" id="rankStatus" aria-live="polite">
+          <span id="rankText">⏳ Đang gửi kết quả lên bảng xếp hạng…</span>
+          <button class="link-btn" id="btnRetrySubmit" type="button" hidden>Gửi lại</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="btnBoard" type="button">🏆 Xem bảng xếp hạng</button>
+          <button class="btn btn-ghost" id="btnReplay" type="button">🔄 Chơi lại từ đầu</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== MÀN HÌNH BẢNG XẾP HẠNG ===== -->
+  <section class="screen" id="screenBoard" aria-labelledby="boardTitle">
+    <div class="panel board" data-fit>
+      <header class="board-head">
+        <span class="tag">Bảng tổng kết</span>
+        <h2 class="result-title board-title" id="boardTitle">🏆 BẢNG XẾP HẠNG</h2>
+        <p class="board-meta" id="boardMeta" aria-live="polite">⏳ Đang tải…</p>
+      </header>
+      <div class="board-cols" aria-hidden="true"><span>Hạng</span><span>Người chơi</span><span>Điểm</span></div>
+      <ol class="board-list" id="boardList"></ol>
+      <div class="btn-row">
+        <button class="btn" id="btnRefresh" type="button">🔄 Làm mới</button>
+        <button class="btn btn-ghost" id="btnBoardBack" type="button">⬅ Quay lại</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ================= DỮ LIỆU CÂU HỎI ================= */
+  var QUESTIONS = [
+    {
+      question: "Trong dạy học môn Tin học ở tiểu học, việc ứng dụng công nghệ thông tin mang lại những lợi ích gì cho giáo viên và học sinh?",
+      options: [
+        "Giúp bài giảng sinh động, trực quan hơn.",
+        "Tăng hứng thú và sự chủ động học tập của học sinh.",
+        "Hỗ trợ giáo viên kiểm tra, đánh giá kết quả học tập.",
+        "Cả A, B và C đều đúng."
+      ],
+      answer: 3,
+      explain: "Ứng dụng CNTT tác động toàn diện, vừa giúp trực quan hóa bài giảng, vừa tạo hứng thú học tập và hỗ trợ giáo viên đánh giá học sinh hiệu quả."
+    },
+    {
+      question: "Phần mềm nào sau đây có thể được sử dụng để thiết kế bài giảng E-learning có tích hợp câu hỏi tương tác?",
+      options: [
+        "iSpring Suite.",
+        "Paint.",
+        "Notepad.",
+        "Calculator."
+      ],
+      answer: 0,
+      explain: "iSpring Suite là bộ công cụ chuyên dụng tích hợp vào PowerPoint giúp tạo bài giảng E-learning chuẩn quốc tế có tương tác và câu hỏi đánh giá."
+    },
+    {
+      question: "Khi sử dụng trí tuệ nhân tạo (AI) để hỗ trợ soạn bài giảng, giáo viên cần lưu ý điều gì?",
+      options: [
+        "Sử dụng nguyên văn mọi nội dung do AI tạo ra.",
+        "Kiểm tra tính chính xác của thông tin và điều chỉnh cho phù hợp với học sinh.",
+        "Để AI thay thế hoàn toàn vai trò của giáo viên.",
+        "Chia sẻ mọi thông tin cá nhân của học sinh cho AI."
+      ],
+      answer: 1,
+      explain: "AI chỉ là công cụ hỗ trợ. Giáo viên phải giữ vai trò chủ đạo, luôn kiểm chứng nguồn tin và bảo vệ dữ liệu cá nhân của học sinh."
+    },
+    {
+      question: "Công cụ nào sau đây phù hợp để giáo viên tạo các câu hỏi trắc nghiệm trực tuyến và tổ chức đánh giá nhanh học sinh?",
+      options: [
+        "Google Forms.",
+        "Paint.",
+        "File Explorer.",
+        "Notepad."
+      ],
+      answer: 0,
+      explain: "Google Forms cho phép tạo biểu mẫu trắc nghiệm trực tuyến, tự động chấm điểm và tổng hợp thống kê kết quả học sinh nhanh chóng."
+    }
+  ];
+
+  var LETTERS = ["A", "B", "C", "D"];
+  var TOTAL = QUESTIONS.length;
+  var ENERGY_PER_QUESTION = 100 / TOTAL;
+  var CONFUSED_MS = 1000;
+  var MIN_SCALE = 0.45;
+
+  /* Lời thoại của robot: dòng chính (đậm) + dòng phụ (mềm mại) */
+  var TOASTS = {
+    idle: function (n) {
+      return { mood: "", title: "Trạm " + n + " – Sẵn sàng nạp!", sub: "Chọn đáp án đúng để nạp năng lượng cho mình nhé! 🔌" };
+    },
+    happy: { mood: "ok", title: "Tuyệt vời! Năng lượng", hl: "+" + ENERGY_PER_QUESTION + "% ⚡", sub: "Mình thấy khỏe hơn rồi!" },
+    confused: { mood: "bad", title: "Ối! Mạch hơi chập… 💨", sub: "Bạn thử phương án khác giúp mình nhé!" },
+    waiting: { mood: "", title: "Mình vẫn đang chờ năng lượng…", sub: "Bạn chọn lại phương án khác nhé! 🔌" }
+  };
+
+  /* Nối 2 từ cuối bằng khoảng trắng không ngắt để không bao giờ rơi 1 từ lẻ
+     xuống dòng riêng (bổ trợ cho text-wrap ở trình duyệt cũ). */
+  function noOrphan(text) {
+    var words = text.split(" ");
+    if (words.length < 4) return text;
+    var last = words.pop();
+    return words.join(" ") + " " + last;
+  }
+
+  function restartAnim(el) {
+    el.classList.remove("anim");
+    void el.offsetWidth;
+    el.classList.add("anim");
+  }
+
+  /* ================= ROBOT SVG ================= */
+  function robotSVG(uid) {
+    var body = "rb-body-" + uid;
+    var glow = "rb-glow-" + uid;
+    return '' +
+      '<svg viewBox="0 0 200 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Robot trợ giảng AI">' +
+        '<defs>' +
+          '<linearGradient id="' + body + '" x1="0" y1="0" x2="0" y2="1">' +
+            '<stop offset="0" stop-color="#eef4ff"/>' +
+            '<stop offset="1" stop-color="#93a8d8"/>' +
+          '</linearGradient>' +
+          '<filter id="' + glow + '" x="-50%" y="-50%" width="200%" height="200%">' +
+            '<feGaussianBlur stdDeviation="2.4" result="b"/>' +
+            '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+          '</filter>' +
+        '</defs>' +
+
+        // Khói bốc lên khi lúng túng
+        '<g class="smoke" fill="#b9c3d9">' +
+          '<circle class="puff" cx="58" cy="36" r="8"/>' +
+          '<circle class="puff" cx="142" cy="32" r="9"/>' +
+          '<circle class="puff" cx="100" cy="16" r="7"/>' +
+        '</g>' +
+
+        // Ăng-ten
+        '<line x1="100" y1="40" x2="100" y2="20" stroke="#93a8d8" stroke-width="5" stroke-linecap="round"/>' +
+        '<circle class="antenna-bulb" cx="100" cy="14" r="8" filter="url(#' + glow + ')"/>' +
+
+        // Tai
+        '<rect x="27" y="68" width="16" height="38" rx="6" fill="#22e4ff" opacity="0.85"/>' +
+        '<rect x="157" y="68" width="16" height="38" rx="6" fill="#22e4ff" opacity="0.85"/>' +
+
+        // Đầu & màn hình mặt
+        '<rect x="40" y="38" width="120" height="92" rx="26" fill="url(#' + body + ')" stroke="#5c6fa8" stroke-width="2"/>' +
+        '<rect x="54" y="53" width="92" height="62" rx="16" fill="#0a1230" stroke="#22e4ff" stroke-opacity="0.6" stroke-width="2"/>' +
+
+        // Mắt - bình thường
+        '<g class="eyes-idle" fill="#22e4ff" filter="url(#' + glow + ')">' +
+          '<ellipse class="eye-idle" cx="80" cy="80" rx="9" ry="11"/>' +
+          '<ellipse class="eye-idle" cx="120" cy="80" rx="9" ry="11"/>' +
+          '<circle cx="83" cy="76" r="3" fill="#ffffff"/>' +
+          '<circle cx="123" cy="76" r="3" fill="#ffffff"/>' +
+        '</g>' +
+        // Mắt - vui (cười cong)
+        '<g class="eyes-happy" fill="none" stroke="#39ff9f" stroke-width="5.5" stroke-linecap="round" filter="url(#' + glow + ')">' +
+          '<path d="M69 85 Q80 68 91 85"/>' +
+          '<path d="M109 85 Q120 68 131 85"/>' +
+        '</g>' +
+        // Mắt - lúng túng (> <)
+        '<g class="eyes-confused" fill="none" stroke="#ff9f43" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" filter="url(#' + glow + ')">' +
+          '<path d="M71 71 L89 80 L71 89"/>' +
+          '<path d="M129 71 L111 80 L129 89"/>' +
+        '</g>' +
+
+        // Má hồng khi vui
+        '<g class="cheeks" fill="#ff6bd5" opacity="0.55">' +
+          '<ellipse cx="65" cy="99" rx="7" ry="4"/>' +
+          '<ellipse cx="135" cy="99" rx="7" ry="4"/>' +
+        '</g>' +
+
+        // Miệng
+        '<path class="mouth-idle" d="M88 101 Q100 108 112 101" fill="none" stroke="#22e4ff" stroke-width="4" stroke-linecap="round" filter="url(#' + glow + ')"/>' +
+        '<path class="mouth-happy" d="M84 96 Q100 114 116 96 Z" fill="#39ff9f" stroke="#39ff9f" stroke-width="3" stroke-linejoin="round" filter="url(#' + glow + ')"/>' +
+        '<path class="mouth-confused" d="M83 104 L89 99 L95 104 L101 99 L107 104 L113 99 L117 103" fill="none" stroke="#ff9f43" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+
+        // Giọt mồ hôi
+        '<path class="sweat" d="M150 50 Q156 60 150 64 Q144 60 150 50 Z" fill="#7fd8ff"/>' +
+
+        // Cổ
+        '<rect x="88" y="128" width="24" height="10" rx="3" fill="#5c6fa8"/>' +
+
+        // Tay
+        '<g class="arm arm-left"><rect x="30" y="142" width="18" height="50" rx="9" fill="url(#' + body + ')" stroke="#5c6fa8" stroke-width="2"/><circle cx="39" cy="194" r="8" fill="#22e4ff"/></g>' +
+        '<g class="arm arm-right"><rect x="152" y="142" width="18" height="50" rx="9" fill="url(#' + body + ')" stroke="#5c6fa8" stroke-width="2"/><circle cx="161" cy="194" r="8" fill="#22e4ff"/></g>' +
+
+        // Thân
+        '<rect x="52" y="136" width="96" height="72" rx="20" fill="url(#' + body + ')" stroke="#5c6fa8" stroke-width="2"/>' +
+        // Pin ở ngực
+        '<rect x="70" y="152" width="60" height="32" rx="8" fill="#0a1230" stroke="#22e4ff" stroke-opacity="0.7" stroke-width="2"/>' +
+        '<rect x="130" y="162" width="5" height="12" rx="2" fill="#22e4ff" opacity="0.7"/>' +
+        '<rect class="chest-fill" x="74" y="156" width="52" height="24" rx="4" fill="#39ff9f" style="transform:scaleX(0)" filter="url(#' + glow + ')"/>' +
+        '<path d="M102 157 L92 170 L99 170 L96 180 L108 165 L101 165 Z" fill="#ffd23f" stroke="#0a1230" stroke-width="1"/>' +
+
+        // Chân
+        '<rect x="64" y="206" width="28" height="16" rx="7" fill="#5c6fa8"/>' +
+        '<rect x="108" y="206" width="28" height="16" rx="7" fill="#5c6fa8"/>' +
+      '</svg>';
+  }
+
+  /* ================= DOM ================= */
+  function $(id) { return document.getElementById(id); }
+
+  var appEl = $("app");
+  var screens = { intro: $("screenIntro"), quiz: $("screenQuiz"), result: $("screenResult"), board: $("screenBoard") };
+  var robots = { intro: $("robotIntro"), quiz: $("robotQuiz"), result: $("robotResult") };
+  var els = {
+    stationLabel: $("stationLabel"),
+    progressDots: $("progressDots"),
+    question: $("questionText"),
+    answers: $("answers"),
+    retryMsg: $("retryMsg"),
+    feedback: $("feedback"),
+    feedbackResult: $("feedbackResult"),
+    feedbackText: $("feedbackText"),
+    nextRow: $("nextRow"),
+    btnNext: $("btnNext"),
+    toast: $("toast"),
+    toastTitle: $("toastTitle"),
+    toastSub: $("toastSub"),
+    quizBattery: $("quizBattery"),
+    resultMsg: $("resultMsg"),
+    statFirstTry: $("statFirstTry"),
+    statWrong: $("statWrong"),
+    statEnergy: $("statEnergy"),
+    review: $("review"),
+    soundToggle: $("soundToggle"),
+    loginForm: $("loginForm"),
+    playerName: $("playerName"),
+    playerEmail: $("playerEmail"),
+    loginError: $("loginError"),
+    rankStatus: $("rankStatus"),
+    rankText: $("rankText"),
+    btnRetrySubmit: $("btnRetrySubmit"),
+    boardMeta: $("boardMeta"),
+    boardList: $("boardList")
+  };
+
+  Object.keys(robots).forEach(function (key, i) {
+    robots[key].innerHTML = '<div class="robot-halo"></div><div class="robot-float">' + robotSVG(i) + '</div>';
+  });
+
+  /* Dựng thanh pin gồm 4 nấc riêng biệt */
+  document.querySelectorAll("[data-battery]").forEach(function (b) {
+    var cells = "";
+    for (var i = 0; i < TOTAL; i++) cells += '<div class="battery-cell"></div>';
+    b.setAttribute("role", "progressbar");
+    b.setAttribute("aria-label", "Mức pin robot");
+    b.setAttribute("aria-valuemin", "0");
+    b.setAttribute("aria-valuemax", "100");
+    b.innerHTML =
+      '<div class="battery-body">' +
+        '<div class="battery-cells" style="grid-template-columns: repeat(' + TOTAL + ', minmax(0, 1fr))">' + cells + '</div>' +
+        '<span class="battery-label">0%</span>' +
+      '</div>' +
+      '<div class="battery-cap"></div>';
+  });
+
+  /* ================= CO GIÃN VỪA KHUNG HÌNH (KHÔNG CUỘN) =================
+     Kích thước được tính trên một BẢN SAO VÔ HÌNH của màn hình, chỉ khi bắt đầu
+     chơi, khi chuyển màn hình hoặc khi đổi kích thước cửa sổ. Màn hình chơi
+     được đo với trạng thái "đầy đủ nhất" của cả 4 câu (đã hiện giải thích)
+     nên khi trả lời, bố cục tuyệt đối không bị co rút hay dịch chuyển. */
+  function anyOverflow(nodes) {
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) return true;
+    }
+    return false;
+  }
+
+  function makeClone(screen) {
+    var clone = screen.cloneNode(true);
+    clone.removeAttribute("id");
+    clone.querySelectorAll("[id]").forEach(function (el) { el.removeAttribute("id"); });
+    clone.querySelectorAll("[aria-live]").forEach(function (el) { el.removeAttribute("aria-live"); });
+    clone.classList.add("active", "measure-clone");
+    clone.setAttribute("aria-hidden", "true");
+    appEl.appendChild(clone);
+    return clone;
+  }
+
+  function shrinkUntilFits(clone, startScale) {
+    var targets = clone.querySelectorAll("[data-fit]");
+    var scale = startScale;
+    clone.style.setProperty("--s", String(scale));
+    while (anyOverflow(targets) && scale > MIN_SCALE) {
+      scale = Math.round((scale - 0.02) * 100) / 100;
+      clone.style.setProperty("--s", String(scale));
+    }
+    return scale;
+  }
+
+  function longest(list) {
+    return list.reduce(function (a, b) { return b.length > a.length ? b : a; }, "");
+  }
+
+  function fitStatic(screen) {
+    var clone = makeClone(screen);
+    var scale = shrinkUntilFits(clone, 1);
+    clone.remove();
+    screen.style.setProperty("--s", String(scale));
+  }
+
+  function fitQuiz() {
+    var clone = makeClone(screens.quiz);
+    var toastList = [TOASTS.idle(TOTAL), TOASTS.happy, TOASTS.confused, TOASTS.waiting];
+    clone.querySelector(".toast-title").textContent = longest(toastList.map(function (t) { return t.title + (t.hl ? " " + t.hl : ""); }));
+    clone.querySelector(".toast-sub").textContent = longest(toastList.map(function (t) { return t.sub; }));
+
+    var scale = 1;
+    QUESTIONS.forEach(function (q, i) {
+      fillQuestion(clone, i, null);
+      clone.querySelector(".feedback-result").textContent = feedbackHeadline(q, 3);
+      scale = shrinkUntilFits(clone, scale);
+    });
+    clone.remove();
+    screens.quiz.style.setProperty("--s", String(scale));
+  }
+
+  function fitActive() {
+    if (activeScreen === screens.quiz) fitQuiz();
+    else fitStatic(activeScreen);
+  }
+
+  var resizeTimer = 0;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitActive, 120);
+  });
+
+  /* ================= ÂM THANH (Web Audio API) ================= */
+  var audioCtx = null;
+  var soundOn = true;
+
+  function getCtx() {
+    if (!audioCtx) {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function tone(freq, start, duration, type, volume, endFreq) {
+    if (!soundOn) return;
+    var ctx = getCtx();
+    if (!ctx) return;
+    var t = ctx.currentTime + start;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = type || "sine";
+    osc.frequency.setValueAtTime(freq, t);
+    if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t + duration);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(volume || 0.2, t + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + duration + 0.05);
+  }
+
+  var sfx = {
+    click: function () {
+      tone(660, 0, 0.08, "square", 0.05, 990);
+    },
+    correct: function () {
+      // Hợp âm Đô trưởng rải + tiếng chuông "ting"
+      [523.25, 659.25, 783.99].forEach(function (f, i) { tone(f, i * 0.07, 0.55, "triangle", 0.16); });
+      tone(1046.5, 0.21, 0.8, "sine", 0.14);
+      tone(2093, 0.21, 0.5, "sine", 0.05);
+    },
+    wrong: function () {
+      // Buzzer ngắn, trầm
+      tone(196, 0, 0.18, "square", 0.08, 160);
+      tone(130.8, 0.18, 0.28, "square", 0.08, 98);
+      tone(98, 0, 0.45, "sawtooth", 0.035);
+    },
+    victory: function () {
+      var melody = [
+        [392.00, 0.00, 0.14], [523.25, 0.15, 0.14], [659.25, 0.30, 0.14],
+        [783.99, 0.45, 0.30], [659.25, 0.78, 0.14], [783.99, 0.93, 0.25],
+        [1046.5, 1.20, 0.90]
+      ];
+      melody.forEach(function (n) { tone(n[0], n[1], n[2] + 0.1, "triangle", 0.17); });
+      [130.81, 196.00, 261.63].forEach(function (f) { tone(f, 0, 0.75, "sine", 0.08); });
+      [261.63, 329.63, 392.00, 523.25].forEach(function (f) { tone(f, 1.2, 1.2, "sine", 0.07); });
+      tone(2093, 1.25, 0.6, "sine", 0.04);
+    }
+  };
+
+  els.soundToggle.addEventListener("click", function () {
+    soundOn = !soundOn;
+    els.soundToggle.textContent = soundOn ? "🔊" : "🔇";
+    els.soundToggle.setAttribute("aria-label", soundOn ? "Tắt âm thanh" : "Bật âm thanh");
+    sfx.click();
+  });
+
+  /* ================= PHÁO HOA (Canvas) ================= */
+  var fireworks = (function () {
+    var canvas = $("fireworks");
+    var ctx = canvas.getContext("2d");
+    var w = 0, h = 0, dpr = 1;
+    var rockets = [], particles = [];
+    var running = false, endAt = 0, nextLaunch = 0, rafId = 0;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      w = window.innerWidth;
+      h = window.innerHeight;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    function launch() {
+      var targetY = h * (0.12 + Math.random() * 0.33);
+      var gravity = 0.12;
+      rockets.push({
+        x: w * (0.1 + Math.random() * 0.8),
+        y: h,
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: -Math.sqrt(2 * gravity * (h - targetY)),
+        g: gravity,
+        hue: Math.floor(Math.random() * 360)
+      });
+    }
+
+    function explode(r) {
+      var count = 60 + Math.floor(Math.random() * 30);
+      for (var i = 0; i < count; i++) {
+        var angle = (Math.PI * 2 * i) / count + Math.random() * 0.2;
+        var speed = 1.5 + Math.random() * 4;
+        particles.push({
+          x: r.x, y: r.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 0,
+          maxLife: 55 + Math.random() * 45,
+          hue: (r.hue + Math.random() * 50 - 25 + 360) % 360,
+          size: 1.5 + Math.random() * 1.8
+        });
+      }
+    }
+
+    function frame(now) {
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+      ctx.fillRect(0, 0, w, h);
+      ctx.globalCompositeOperation = "lighter";
+
+      if (now < endAt && now >= nextLaunch) {
+        launch();
+        if (Math.random() < 0.35) launch();
+        nextLaunch = now + 280 + Math.random() * 380;
+      }
+
+      for (var i = rockets.length - 1; i >= 0; i--) {
+        var r = rockets[i];
+        r.x += r.vx;
+        r.y += r.vy;
+        r.vy += r.g;
+        ctx.fillStyle = "hsl(" + r.hue + ", 100%, 75%)";
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+        if (r.vy >= 0) {
+          explode(r);
+          rockets.splice(i, 1);
+        }
+      }
+
+      for (var j = particles.length - 1; j >= 0; j--) {
+        var p = particles[j];
+        p.vx *= 0.975;
+        p.vy = p.vy * 0.975 + 0.06;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life++;
+        var alpha = 1 - p.life / p.maxLife;
+        if (alpha <= 0) { particles.splice(j, 1); continue; }
+        ctx.fillStyle = "hsla(" + p.hue + ", 100%, 65%, " + alpha + ")";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (now >= endAt && rockets.length === 0 && particles.length === 0) {
+        stop();
+        return;
+      }
+      rafId = requestAnimationFrame(frame);
+    }
+
+    function start(duration) {
+      endAt = performance.now() + (duration || 7000);
+      nextLaunch = 0;
+      if (!running) {
+        running = true;
+        rafId = requestAnimationFrame(frame);
+      }
+    }
+
+    function stop() {
+      running = false;
+      cancelAnimationFrame(rafId);
+      rockets = [];
+      particles = [];
+      ctx.globalCompositeOperation = "source-over";
+      ctx.clearRect(0, 0, w, h);
+    }
+
+    return { start: start, stop: stop };
+  })();
+
+  /* ================= TRẠNG THÁI TRÒ CHƠI ================= */
+  var activeScreen = screens.intro;
+  var current = 0;
+  var score = 0;
+  var locked = false;      // true khi câu hiện tại đã được trả lời đúng
+  var wrongTries = 0;      // số lần chọn sai ở câu hiện tại
+  var results = [];        // số lần chọn sai trước khi đúng, theo từng trạm
+  var confusedTimer = 0;
+  var startedAt = 0;       // thời điểm bắt đầu lượt chơi (ms), để tính thời gian hoàn thành
+
+  function showScreen(name) {
+    activeScreen = screens[name];
+    fitActive();
+    Object.keys(screens).forEach(function (key) {
+      screens[key].classList.toggle("active", key === name);
+    });
+  }
+
+  function setRobot(slot, state) {
+    slot.setAttribute("data-state", state);
+  }
+
+  /* Cập nhật pin theo số câu đúng: mỗi câu đúng sáng thêm 1 nấc */
+  function setEnergy(correctCount) {
+    var pct = Math.round((correctCount / TOTAL) * 100);
+    document.querySelectorAll("[data-battery]").forEach(function (b) {
+      b.setAttribute("data-level", String(pct));
+      b.setAttribute("aria-valuenow", String(pct));
+      b.querySelectorAll(".battery-cell").forEach(function (cell, i) {
+        cell.classList.toggle("on", i < correctCount);
+      });
+      b.querySelector(".battery-label").textContent = pct + "%";
+    });
+    document.querySelectorAll(".robot-slot .chest-fill").forEach(function (rect) {
+      rect.style.transform = "scaleX(" + pct / 100 + ")";
+    });
+    return pct;
+  }
+
+  function energyPopup() {
+    var pop = document.createElement("span");
+    pop.className = "energy-pop";
+    pop.textContent = "+" + ENERGY_PER_QUESTION + "% ⚡";
+    els.quizBattery.appendChild(pop);
+    setTimeout(function () { pop.remove(); }, 1500);
+  }
+
+  function say(msg) {
+    els.toast.className = "toast" + (msg.mood ? " " + msg.mood : "");
+    els.toastTitle.textContent = msg.title;
+    if (msg.hl) {
+      var hl = document.createElement("b");
+      hl.className = "hl";
+      hl.textContent = msg.hl;
+      els.toastTitle.appendChild(document.createTextNode(" "));
+      els.toastTitle.appendChild(hl);
+    }
+    els.toastSub.textContent = noOrphan(msg.sub);
+    restartAnim(els.toast);
+  }
+
+  function renderDots() {
+    els.progressDots.innerHTML = "";
+    QUESTIONS.forEach(function (_, i) {
+      var dot = document.createElement("i");
+      if (i < results.length) dot.className = results[i] === 0 ? "done-ok" : "done-retry";
+      else if (i === current) dot.className = "current";
+      els.progressDots.appendChild(dot);
+    });
+  }
+
+  function feedbackHeadline(q, tries) {
+    return tries === 0
+      ? "🎉 Chính xác ngay lần đầu! Đáp án " + LETTERS[q.answer] + " là đúng."
+      : "🎉 Chính xác! Bạn đã tìm ra đáp án " + LETTERS[q.answer] + " sau " + (tries + 1) + " lần thử.";
+  }
+
+  /* Điền nội dung 1 câu hỏi vào màn hình (thật hoặc bản sao đo kích thước).
+     Phần giải thích luôn được điền sẵn để chiếm trước chỗ trong bố cục. */
+  function fillQuestion(root, index, onChoose) {
+    var q = QUESTIONS[index];
+    root.querySelector(".station-badge").textContent = "Trạm " + (index + 1) + "/" + TOTAL;
+    root.querySelector(".question").textContent = noOrphan(q.question);
+
+    var answersEl = root.querySelector(".answers");
+    answersEl.innerHTML = "";
+    q.options.forEach(function (opt, i) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "answer";
+      btn.innerHTML = '<span class="answer-key">' + LETTERS[i] + '</span><span class="answer-text"></span><span class="answer-icon" aria-hidden="true"></span>';
+      btn.querySelector(".answer-text").textContent = noOrphan(opt);
+      btn.setAttribute("aria-label", "Đáp án " + LETTERS[i] + ": " + opt);
+      if (onChoose) btn.addEventListener("click", function () { onChoose(i); });
+      answersEl.appendChild(btn);
+    });
+
+    root.querySelector(".feedback-result").textContent = feedbackHeadline(q, 0);
+    root.querySelector(".feedback-text").textContent = noOrphan(q.explain);
+  }
+
+  function startGame() {
+    fireworks.stop();
+    current = 0;
+    score = 0;
+    results = [];
+    startedAt = Date.now();
+    setEnergy(0);
+    renderQuestion();
+    showScreen("quiz");
+  }
+
+  function renderQuestion() {
+    locked = false;
+    wrongTries = 0;
+    clearTimeout(confusedTimer);
+
+    fillQuestion(screens.quiz, current, choose);
+    restartAnim(els.question);
+    els.answers.querySelectorAll(".answer").forEach(function (b) { b.classList.add("anim"); });
+
+    els.retryMsg.classList.add("is-hidden");
+    els.feedback.classList.add("is-hidden");
+    els.nextRow.classList.add("is-hidden");
+    els.btnNext.tabIndex = -1;
+    els.btnNext.textContent = current === TOTAL - 1 ? "Xem kết quả sạc pin 🏁" : "Trạm tiếp theo ➜";
+
+    setRobot(robots.quiz, "idle");
+    say(TOASTS.idle(current + 1));
+    renderDots();
+  }
+
+  function choose(index) {
+    if (locked) return;
+    var q = QUESTIONS[current];
+    var buttons = els.answers.querySelectorAll(".answer");
+    var btn = buttons[index];
+    if (!btn || btn.disabled) return;
+
+    if (index !== q.answer) handleWrong(btn);
+    else handleCorrect(btn, buttons, q);
+  }
+
+  /* Chọn sai: chỉ khóa riêng nút vừa chọn, cho phép thử lại các phương án khác */
+  function handleWrong(btn) {
+    wrongTries++;
+    btn.disabled = true;
+    btn.classList.remove("anim");
+    btn.classList.add("wrong");
+    btn.querySelector(".answer-icon").textContent = "❌";
+    sfx.wrong();
+
+    setRobot(robots.quiz, "confused");
+    say(TOASTS.confused);
+    clearTimeout(confusedTimer);
+    confusedTimer = setTimeout(function () {
+      if (!locked) {
+        setRobot(robots.quiz, "idle");
+        say(TOASTS.waiting);
+      }
+    }, CONFUSED_MS);
+
+    els.retryMsg.classList.remove("is-hidden");
+    restartAnim(els.retryMsg);
+  }
+
+  /* Chọn đúng: khóa câu hỏi, nạp pin, hiện giải thích và nút chuyển trạm */
+  function handleCorrect(btn, buttons, q) {
+    locked = true;
+    clearTimeout(confusedTimer);
+    score++;
+    results.push(wrongTries);
+
+    buttons.forEach(function (b) {
+      b.disabled = true;
+      b.classList.remove("anim");
+      if (b !== btn && !b.classList.contains("wrong")) b.classList.add("dim");
+    });
+    btn.classList.add("correct");
+    btn.querySelector(".answer-icon").textContent = "✅";
+
+    setEnergy(score);
+    energyPopup();
+    setRobot(robots.quiz, "happy");
+    say(TOASTS.happy);
+    sfx.correct();
+
+    els.retryMsg.classList.add("is-hidden");
+    els.feedbackResult.textContent = feedbackHeadline(q, wrongTries);
+    els.feedback.classList.remove("is-hidden");
+    restartAnim(els.feedback);
+    els.nextRow.classList.remove("is-hidden");
+    restartAnim(els.nextRow);
+    els.btnNext.tabIndex = 0;
+    renderDots();
+
+    setTimeout(function () { els.btnNext.focus({ preventScroll: true }); }, 300);
+  }
+
+  function nextStation() {
+    if (!locked) return;
+    sfx.click();
+    current++;
+    if (current < TOTAL) renderQuestion();
+    else showResult();
+  }
+
+  function showResult() {
+    var pct = setEnergy(score);
+    var firstTry = results.filter(function (n) { return n === 0; }).length;
+    var wrongTotal = results.reduce(function (sum, n) { return sum + n; }, 0);
+
+    els.statFirstTry.textContent = firstTry + "/" + TOTAL;
+    els.statWrong.textContent = String(wrongTotal);
+    els.statEnergy.textContent = pct + "%";
+
+    els.review.innerHTML = "";
+    results.forEach(function (n, i) {
+      var li = document.createElement("li");
+      li.innerHTML = "<span>Trạm " + (i + 1) + "</span>" +
+        (n === 0
+          ? '<span class="ok">✅ Đúng lần đầu</span>'
+          : '<span class="retry">🔁 Đúng sau ' + (n + 1) + " lần</span>");
+      els.review.appendChild(li);
+    });
+
+    var msg;
+    if (firstTry === TOTAL) {
+      msg = "Xuất sắc! Bạn trả lời đúng ngay lần đầu ở cả 4 trạm. Chế độ trợ giảng hoàn chỉnh đã được MỞ KHÓA – robot sẵn sàng lên lớp cùng bạn! 🚀";
+    } else if (firstTry >= TOTAL / 2) {
+      msg = "Làm tốt lắm! Bạn đúng ngay lần đầu " + firstTry + "/" + TOTAL + " trạm và đã kiên trì tìm ra mọi đáp án. Chế độ trợ giảng hoàn chỉnh đã được MỞ KHÓA! 🚀";
+    } else {
+      msg = "Nhờ sự kiên trì của bạn, robot đã được sạc đầy! Hãy xem lại phần giải thích sư phạm và chơi lại để thử đúng ngay từ lần đầu nhé! 💪";
+    }
+    els.resultMsg.textContent = noOrphan(msg);
+
+    lastSubmit = {
+      p_email: player.email,
+      p_full_name: player.name,
+      p_wrong_tries: results.slice(),
+      p_duration_ms: Date.now() - startedAt
+    };
+    setRankStatus("", "⏳ Đang gửi kết quả lên bảng xếp hạng…", false);
+
+    setRobot(robots.result, "super");
+    showScreen("result");
+    sfx.victory();
+    fireworks.start(8000);
+    submitResult();
+  }
+
+  /* ================= MÁY CHỦ XẾP HẠNG (Supabase) =================
+     Trình duyệt chỉ gọi 2 hàm RPC: submit_score (gửi lượt chơi, máy chủ tự tính
+     điểm và thứ hạng) và get_leaderboard (email đã được che sẵn ở máy chủ). */
+  var CONFIG = window.APP_CONFIG || {};
+  var API_URL = String(CONFIG.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+  var API_KEY = String(CONFIG.SUPABASE_KEY || "").trim();
+  var BOARD_LIMIT = 200;
+  var BOARD_REFRESH_MS = 15000;
+  var BOARD_HASH = "#bang-xep-hang";
+  var PLAYER_KEY = "robotQuiz.player";
+  var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  var MEDALS = ["🥇", "🥈", "🥉"];
+
+  /* Chặn nhầm khóa bí mật (service_role / secret) – repo công khai nên lộ khóa là mất toàn quyền DB */
+  function isSecretKey(key) {
+    if (/^sb_secret_/.test(key)) return true;
+    try {
+      var payload = key.split(".")[1];
+      return !!payload && JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).role === "service_role";
+    } catch (e) { return false; }
+  }
+
+  function rpc(name, params) {
+    if (!API_URL || !API_KEY) return Promise.reject(new Error("chưa cấu hình máy chủ (config.js)"));
+    if (isSecretKey(API_KEY)) return Promise.reject(new Error("config.js đang dùng khóa BÍ MẬT – hãy thay bằng khóa anon/publishable"));
+    return fetch(API_URL + "/rest/v1/rpc/" + name, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: API_KEY, Authorization: "Bearer " + API_KEY },
+      body: JSON.stringify(params)
+    }).catch(function () {
+      throw new Error("không kết nối được máy chủ, hãy kiểm tra mạng");
+    }).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (data) {
+        if (!res.ok) throw new Error((data && data.message) || "lỗi máy chủ (" + res.status + ")");
+        return data;
+      });
+    });
+  }
+
+  function loadPlayer() {
+    try { return JSON.parse(localStorage.getItem(PLAYER_KEY)) || null; } catch (e) { return null; }
+  }
+  function savePlayer(p) {
+    try { localStorage.setItem(PLAYER_KEY, JSON.stringify(p)); } catch (e) { /* trình duyệt chặn lưu: bỏ qua */ }
+  }
+
+  var player = loadPlayer();   // { name, email } của người đang chơi
+  var lastSubmit = null;       // tham số lượt gửi gần nhất, dùng cho nút "Gửi lại"
+  var myRank = null;           // { rank, name } để tô sáng dòng của mình trên bảng xếp hạng
+  var boardTimer = 0;
+  var boardLoading = false;
+  var boardBackTo = "intro";
+  var boardScrollToMe = false;
+
+  if (player) {
+    els.playerName.value = player.name || "";
+    els.playerEmail.value = player.email || "";
+  }
+
+  function readLogin() {
+    var name = els.playerName.value.replace(/\s+/g, " ").trim();
+    var email = els.playerEmail.value.trim().toLowerCase();
+    var field = null;
+    var error = "";
+    if (name.length < 2) { field = els.playerName; error = "Bạn hãy nhập họ và tên nhé!"; }
+    else if (!EMAIL_RE.test(email)) { field = els.playerEmail; error = "Email chưa đúng định dạng, ví dụ: ten@gmail.com"; }
+    els.playerName.setAttribute("aria-invalid", String(field === els.playerName));
+    els.playerEmail.setAttribute("aria-invalid", String(field === els.playerEmail));
+    els.loginError.textContent = error;
+    if (field) { field.focus(); return null; }
+    return { name: name, email: email };
+  }
+
+  function setRankStatus(state, text, canRetry) {
+    els.rankStatus.className = "rank-status" + (state ? " " + state : "");
+    els.rankText.textContent = text;
+    els.btnRetrySubmit.hidden = !canRetry;
+  }
+
+  function submitResult() {
+    var sent = lastSubmit;
+    setRankStatus("", "⏳ Đang gửi kết quả lên bảng xếp hạng…", false);
+    rpc("submit_score", sent).then(function (rows) {
+      var r = rows && rows[0];
+      if (!r) throw new Error("máy chủ không trả về thứ hạng");
+      if (sent !== lastSubmit) return;
+      myRank = { rank: r.rank, name: sent.p_full_name };
+      setRankStatus("ok", "🏆 Lượt này " + r.points + " điểm – hạng #" + r.rank + "/" + r.total_players, false);
+    }).catch(function (err) {
+      if (sent !== lastSubmit) return;
+      setRankStatus("err", "⚠️ Chưa lưu được kết quả: " + err.message + ".", true);
+    }).then(function () {
+      if (activeScreen === screens.result) fitActive();
+    });
+  }
+
+  function node(tag, cls, text) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text != null) el.textContent = String(text);
+    return el;
+  }
+
+  function formatDuration(ms) {
+    var s = Math.round(ms / 1000);
+    var sec = s % 60;
+    return Math.floor(s / 60) + ":" + (sec < 10 ? "0" : "") + sec;
+  }
+
+  function renderBoard(rows) {
+    els.boardList.innerHTML = "";
+    if (!rows.length) {
+      els.boardList.appendChild(node("li", "board-empty", "Chưa có ai hoàn thành – hãy là người đầu tiên! 🚀"));
+    }
+    rows.forEach(function (r) {
+      var isMe = myRank && r.rank === myRank.rank && r.full_name === myRank.name;
+      var li = node("li", "board-row" + (r.rank <= 3 ? " top" + r.rank : "") + (isMe ? " me" : ""));
+      li.appendChild(node("span", "board-rank", MEDALS[r.rank - 1] || "#" + r.rank));
+      var who = node("span", "board-who");
+      who.appendChild(node("span", "board-name", r.full_name));
+      who.appendChild(node("span", "board-email", r.email_masked));
+      li.appendChild(who);
+      var sc = node("span", "board-score");
+      sc.appendChild(node("span", "board-points", r.points));
+      sc.appendChild(node("span", "board-detail", "✅ " + r.first_try + "/" + r.stations + " · ⏱ " + formatDuration(r.duration_ms)));
+      li.appendChild(sc);
+      els.boardList.appendChild(li);
+    });
+    els.boardMeta.textContent = rows.length + " người chơi · cập nhật lúc " +
+      new Date().toLocaleTimeString("vi-VN") + " · tự làm mới mỗi " + BOARD_REFRESH_MS / 1000 + " giây";
+
+    var me = els.boardList.querySelector(".me");
+    if (me && boardScrollToMe) me.scrollIntoView({ block: "nearest" });
+    boardScrollToMe = false;
+  }
+
+  function loadBoard() {
+    if (boardLoading) return;
+    boardLoading = true;
+    rpc("get_leaderboard", { p_limit: BOARD_LIMIT }).then(renderBoard).catch(function (err) {
+      els.boardMeta.textContent = "⚠️ Không tải được bảng xếp hạng: " + err.message + ".";
+    }).then(function () { boardLoading = false; });
+  }
+
+  function openBoard(backTo) {
+    boardBackTo = backTo;
+    boardScrollToMe = true;
+    fireworks.stop();
+    els.boardMeta.textContent = "⏳ Đang tải…";
+    showScreen("board");
+    loadBoard();
+    clearInterval(boardTimer);
+    boardTimer = setInterval(loadBoard, BOARD_REFRESH_MS);
+  }
+
+  function closeBoard() {
+    clearInterval(boardTimer);
+    if (location.hash === BOARD_HASH) history.replaceState(null, "", location.pathname + location.search);
+    showScreen(boardBackTo);
+  }
+
+  /* ================= SỰ KIỆN ================= */
+  els.loginForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var p = readLogin();
+    if (!p) { sfx.wrong(); return; }
+    sfx.click();
+    player = p;
+    savePlayer(p);
+    startGame();
+  });
+  [els.playerName, els.playerEmail].forEach(function (input) {
+    input.addEventListener("input", function () {
+      input.removeAttribute("aria-invalid");
+      els.loginError.textContent = "";
+    });
+  });
+  els.btnNext.addEventListener("click", nextStation);
+  els.btnRetrySubmit.addEventListener("click", function () { sfx.click(); submitResult(); });
+  $("btnBoard").addEventListener("click", function () { sfx.click(); openBoard("result"); });
+  $("btnRefresh").addEventListener("click", function () { sfx.click(); loadBoard(); });
+  $("btnBoardBack").addEventListener("click", function () { sfx.click(); closeBoard(); });
+  $("btnReplay").addEventListener("click", function () {
+    sfx.click();
+    fireworks.stop();
+    setEnergy(0);
+    setRobot(robots.intro, "welcome");
+    showScreen("intro");
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var key = e.key.toLowerCase();
+    var onButton = document.activeElement && document.activeElement.tagName === "BUTTON";
+
+    if (activeScreen === screens.quiz) {
+      var map = { a: 0, b: 1, c: 2, d: 3, "1": 0, "2": 1, "3": 2, "4": 3 };
+      if (!locked && key in map) {
+        e.preventDefault();
+        choose(map[key]);
+      } else if (locked && (key === "arrowright" || (key === "enter" && !onButton))) {
+        e.preventDefault();
+        nextStation();
+      }
+    }
+  });
+
+  setEnergy(0);
+  fitActive();
+  window.addEventListener("load", fitActive);
+
+  /* Link dành cho giáo viên trình chiếu: .../#bang-xep-hang mở thẳng bảng xếp hạng */
+  if (location.hash === BOARD_HASH) openBoard("intro");
+  window.addEventListener("hashchange", function () {
+    if (location.hash !== BOARD_HASH || activeScreen === screens.board) return;
+    openBoard(Object.keys(screens).filter(function (key) { return screens[key] === activeScreen; })[0]);
+  });
+})();
+</script>
+</body>
+</html>
