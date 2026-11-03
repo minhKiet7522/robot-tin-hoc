@@ -20,6 +20,14 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
 - Máy chủ tự tính điểm. Mỗi email chỉ tính **lượt chơi gần nhất**: chơi lại thì kết quả mới thay kết quả cũ, kể cả khi điểm thấp hơn. Ai nhiều điểm hơn đứng trên; bằng điểm thì ai hoàn thành **nhanh hơn** đứng trên.
 - Một người chơi lại nhiều lần với cùng email vẫn chỉ chiếm một dòng trên bảng.
 
+## Khi bấm "Bắt đầu"
+
+Trò chơi lưu họ tên và email lên Supabase (hàm `register_player`), **chờ máy chủ xác nhận rồi mới vào trạm 1**. Thường chỉ mất dưới 1 giây. Trong lúc chờ, nút hiện *“⏳ Đang lưu thông tin…”* và không bấm thêm được, nên không bị gửi trùng. Nếu mạng lỗi hoặc máy chủ không trả lời sau **8 giây**, trò chơi báo lỗi và cho bấm thử lại.
+
+Người mới đăng ký mà chưa chơi xong sẽ **chưa** xuất hiện trên bảng xếp hạng. Họ chỉ có mặt trong bảng `players` trên Supabase.
+
+> ⚠️ Mỗi lần sửa `supabase/schema.sql`, hãy chạy lại **toàn bộ** file trong SQL Editor **trước** khi đẩy code mới lên GitHub. Chạy lại nhiều lần vẫn an toàn, không mất dữ liệu.
+
 ---
 
 ## Bước 1. Tạo CSDL trên Supabase (khoảng 5 phút)
@@ -38,7 +46,7 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
    };
    ```
 
-> ⚠️ **Tuyệt đối không** dán khóa `service_role` / `secret`, vì repo GitHub là công khai. Khóa anon/publishable thì công khai được: CSDL đã chặn đọc/ghi trực tiếp, chỉ cho gọi 2 hàm của trò chơi. Nếu lỡ dán khóa bí mật, trò chơi sẽ báo lỗi và không gửi gì đi.
+> ⚠️ **Tuyệt đối không** dán khóa `service_role` / `secret`, vì repo GitHub là công khai. Khóa anon/publishable thì công khai được: CSDL đã chặn đọc/ghi trực tiếp, chỉ cho gọi 3 hàm của trò chơi. Nếu lỡ dán khóa bí mật, trò chơi sẽ báo lỗi và không gửi gì đi.
 
 ## Bước 2. Chạy thử trên máy
 

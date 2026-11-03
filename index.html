@@ -159,6 +159,7 @@
   }
   .btn:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25) inset, 0 12px 36px rgba(57, 255, 159, 0.55); }
   .btn:active { transform: scale(0.98); }
+  .btn:disabled { cursor: progress; opacity: 0.75; transform: none; }
   .btn:focus-visible, .answer:focus-visible, .sound-toggle:focus-visible {
     outline: 3px solid var(--yellow);
     outline-offset: 3px;
@@ -1958,14 +1959,16 @@
   }
 
   /* ================= MÁY CHỦ XẾP HẠNG (Supabase) =================
-     Trình duyệt chỉ gọi 2 hàm RPC: submit_score (gửi lượt chơi, máy chủ tự tính
-     điểm và thứ hạng) và get_leaderboard (email đã được che sẵn ở máy chủ). */
+     Trình duyệt chỉ gọi 3 hàm RPC: register_player (lưu họ tên + email khi bấm
+     "Bắt đầu"), submit_score (gửi lượt chơi, máy chủ tự tính điểm và thứ hạng)
+     và get_leaderboard (email đã được che sẵn ở máy chủ). */
   var CONFIG = window.APP_CONFIG || {};
   var API_URL = String(CONFIG.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   var API_KEY = String(CONFIG.SUPABASE_KEY || "").trim();
   var BOARD_LIMIT = 200;
   var BOARD_REFRESH_MS = 15000;
   var BOARD_HASH = "#bang-xep-hang";
+  var REGISTER_TIMEOUT_MS = 8000;
   var PLAYER_KEY = "robotQuiz.player";
   var EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
   var MEDALS = ["🥇", "🥈", "🥉"];
@@ -1979,16 +1982,24 @@
     } catch (e) { return false; }
   }
 
-  function rpc(name, params) {
+  /* timeoutMs (tùy chọn): quá thời gian thì hủy yêu cầu, để người chơi không bị treo khi mạng yếu */
+  function rpc(name, params, timeoutMs) {
     if (!API_URL || !API_KEY) return Promise.reject(new Error("chưa cấu hình máy chủ (config.js)"));
     if (isSecretKey(API_KEY)) return Promise.reject(new Error("config.js đang dùng khóa BÍ MẬT – hãy thay bằng khóa anon/publishable"));
+    var ctrl = timeoutMs && window.AbortController ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs) : 0;
     return fetch(API_URL + "/rest/v1/rpc/" + name, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: API_KEY, Authorization: "Bearer " + API_KEY },
-      body: JSON.stringify(params)
-    }).catch(function () {
-      throw new Error("không kết nối được máy chủ, hãy kiểm tra mạng");
+      body: JSON.stringify(params),
+      signal: ctrl ? ctrl.signal : undefined
+    }).catch(function (err) {
+      clearTimeout(timer);
+      throw new Error(err && err.name === "AbortError"
+        ? "máy chủ phản hồi quá lâu, mạng có thể đang chậm"
+        : "không kết nối được máy chủ, hãy kiểm tra mạng");
     }).then(function (res) {
+      clearTimeout(timer);
       return res.json().catch(function () { return null; }).then(function (data) {
         if (!res.ok) throw new Error((data && data.message) || "lỗi máy chủ (" + res.status + ")");
         return data;
@@ -2004,6 +2015,8 @@
   }
 
   var player = loadPlayer();   // { name, email } của người đang chơi
+  var registering = false;     // đang chờ máy chủ lưu người chơi: chặn bấm "Bắt đầu" lần nữa
+  var btnStartLabel = $("btnStart").textContent;
   var lastSubmit = null;       // tham số lượt gửi gần nhất, dùng cho nút "Gửi lại"
   var myRank = null;           // { rank, name } để tô sáng dòng của mình trên bảng xếp hạng
   var boardTimer = 0;
@@ -2028,6 +2041,37 @@
     els.loginError.textContent = error;
     if (field) { field.focus(); return null; }
     return { name: name, email: email };
+  }
+
+  function setRegistering(on) {
+    var btn = $("btnStart");
+    registering = on;
+    btn.disabled = on;
+    btn.classList.toggle("btn-pulse", !on);
+    btn.textContent = on ? "⏳ Đang lưu thông tin…" : btnStartLabel;
+    els.playerName.readOnly = on;
+    els.playerEmail.readOnly = on;
+    els.loginForm.setAttribute("aria-busy", String(on));
+  }
+
+  /* Lưu họ tên + email lên Supabase; chỉ khi máy chủ xác nhận mới vào trạm 1 */
+  function registerAndStart(p) {
+    setRegistering(true);
+    els.loginError.textContent = "";
+    rpc("register_player", { p_email: p.email, p_full_name: p.name }, REGISTER_TIMEOUT_MS).then(function (rows) {
+      var saved = rows && rows[0];
+      if (!saved) throw new Error("máy chủ không xác nhận đã lưu");
+      setRegistering(false);
+      player = { name: saved.full_name, email: saved.email };
+      savePlayer(player);
+      sfx.click();
+      startGame();
+    }).catch(function (err) {
+      setRegistering(false);
+      sfx.wrong();
+      els.loginError.textContent = "⚠️ Chưa lưu được thông tin: " + err.message + ". Bấm “Bắt đầu” để thử lại.";
+      if (activeScreen === screens.intro) fitActive();
+    });
   }
 
   function setRankStatus(state, text, canRetry) {
@@ -2121,12 +2165,10 @@
   /* ================= SỰ KIỆN ================= */
   els.loginForm.addEventListener("submit", function (e) {
     e.preventDefault();
+    if (registering) return;
     var p = readLogin();
     if (!p) { sfx.wrong(); return; }
-    sfx.click();
-    player = p;
-    savePlayer(p);
-    startGame();
+    registerAndStart(p);
   });
   [els.playerName, els.playerEmail].forEach(function (input) {
     input.addEventListener("input", function () {

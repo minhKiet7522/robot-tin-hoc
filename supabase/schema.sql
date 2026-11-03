@@ -4,7 +4,8 @@
 -- Chạy lại nhiều lần vẫn an toàn (không xóa dữ liệu đã có).
 --
 -- Nguyên tắc bảo mật: trình duyệt KHÔNG đọc/ghi thẳng vào bảng (RLS bật,
--- không có policy). Mọi thao tác đi qua 2 hàm:
+-- không có policy). Mọi thao tác đi qua 3 hàm:
+--   register_player – lưu họ tên + email khi bấm "Bắt đầu"
 --   submit_score    – gửi một lượt chơi, máy chủ tự tính điểm và thứ hạng
 --   get_leaderboard – bảng xếp hạng, email đã được che (vd: ng***@gmail.com)
 -- =====================================================================
@@ -71,6 +72,33 @@ as $$
   join public.players pl on pl.email = l.email
 $$;
 
+-- Lưu người chơi khi bấm "Bắt đầu" (trò chơi chờ hàm này thành công rồi mới vào trạm 1).
+-- Upsert theo email nên bấm lại / nhiều người cùng lúc đều an toàn; trả về họ tên đã lưu.
+create or replace function public.register_player(p_email text, p_full_name text)
+returns table (email text, full_name text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_email text := lower(trim(coalesce(p_email, '')));
+  v_name  text := regexp_replace(trim(coalesce(p_full_name, '')), '\s+', ' ', 'g');
+begin
+  if length(v_email) > 254 or v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+    raise exception 'Email không hợp lệ';
+  end if;
+  if char_length(v_name) < 2 or char_length(v_name) > 80 then
+    raise exception 'Họ tên không hợp lệ';
+  end if;
+
+  insert into public.players (email, full_name) values (v_email, v_name)
+  on conflict (email) do update set full_name = excluded.full_name, updated_at = now();
+
+  return query select v_email, v_name;
+end
+$$;
+
 -- Điểm mỗi trạm: đúng ngay 100, sai 1 lần 70, sai 2 lần 40, sai 3 lần 10
 create or replace function public.submit_score(
   p_email text,
@@ -121,7 +149,7 @@ begin
   values (v_email, p_wrong_tries, v_points, v_first, v_wrong, p_duration_ms);
 
   return query
-    select v_points, r.rank, (select count(*)::int from public.players)
+    select v_points, r.rank, (select count(distinct p.email)::int from public.plays p)
     from private.ranked() r
     where r.email = v_email;
 end
@@ -146,7 +174,9 @@ $$;
 
 revoke all on function private.mask_email(text) from public;
 revoke all on function private.ranked() from public;
+revoke all on function public.register_player(text, text) from public;
 revoke all on function public.submit_score(text, text, int[], int) from public;
 revoke all on function public.get_leaderboard(int) from public;
+grant execute on function public.register_player(text, text) to anon, authenticated;
 grant execute on function public.submit_score(text, text, int[], int) to anon, authenticated;
 grant execute on function public.get_leaderboard(int) to anon, authenticated;
