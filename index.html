@@ -1038,7 +1038,31 @@
   .board-score { display: flex; flex-direction: column; align-items: flex-end; }
   .board-points { font-weight: 900; font-size: 1.3em; line-height: 1.1; color: var(--green); text-shadow: 0 0 12px rgba(57, 255, 159, 0.5); }
   .board-detail { font-size: 0.72em; color: var(--muted); white-space: nowrap; }
-  .board-empty { text-align: center; color: var(--muted); padding: 2em 1em; }
+  /* Bảng trống: ẩn tiêu đề cột, hiện một khung chờ ở giữa vùng danh sách */
+  .board.is-empty .board-cols { display: none; }
+  .board-empty {
+    margin: auto;
+    width: min(100%, 30em);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5em;
+    padding: 2em 1.5em;
+    text-align: center;
+    border-radius: 1.2em;
+    border: 2px dashed rgba(34, 228, 255, 0.35);
+    background: radial-gradient(circle at 50% 0%, rgba(34, 228, 255, 0.12), transparent 70%);
+  }
+  .board-empty-icon {
+    font-size: 3.2em;
+    line-height: 1;
+    filter: drop-shadow(0 0 14px rgba(34, 228, 255, 0.55));
+    animation: emptyFloat 3s ease-in-out infinite;
+  }
+  .board-empty-title { font-size: 1.25em; font-weight: 900; color: var(--cyan); }
+  .board-empty-sub { color: var(--muted); max-width: 24em; text-wrap: balance; }
+  @keyframes emptyFloat { 50% { transform: translateY(-0.25em); } }
+  @media (prefers-reduced-motion: reduce) { .board-empty-icon { animation: none; } }
 
   #fireworks {
     position: fixed;
@@ -2105,7 +2129,7 @@
   var boardBackTo = "intro";
   var boardScrollToMe = false;
   var boardCount = 0;          // số người đang có trên bảng (hiện trong hộp thoại xóa)
-  var boardNotice = "";        // thông báo tạm thời ở dòng trạng thái, vd sau khi xóa bảng
+  var boardAdmin = false;      // đang mở bằng link quản trị #quan-tri
   var resetting = false;
   var btnResetLabel = els.btnResetConfirm.textContent;
 
@@ -2189,8 +2213,13 @@
     var keepScroll = els.boardList.scrollTop;   // giữ vị trí cuộn khi tự làm mới
     els.boardList.innerHTML = "";
     if (!rows.length) {
-      els.boardList.appendChild(node("li", "board-empty", "Chưa có ai hoàn thành – hãy là người đầu tiên! 🚀"));
+      var empty = node("li", "board-empty");
+      empty.appendChild(node("span", "board-empty-icon", "🤖"));
+      empty.appendChild(node("span", "board-empty-title", "Chưa có ai hoàn thành"));
+      empty.appendChild(node("span", "board-empty-sub", "Hãy là người đầu tiên nạp đầy năng lượng cho Robot và ghi tên mình lên bảng! 🚀"));
+      els.boardList.appendChild(empty);
     }
+    els.boardList.parentNode.classList.toggle("is-empty", !rows.length);
     rows.forEach(function (r) {
       var li = node("li", "board-row" + (r.is_me ? " me" : ""));
       li.appendChild(node("span", "board-rank", MEDALS[r.rank - 1] || "#" + r.rank));
@@ -2206,8 +2235,9 @@
       els.boardList.appendChild(li);
     });
     boardCount = rows.length;
-    els.boardMeta.textContent = (boardNotice ? boardNotice + " · " : "") + rows.length + " người chơi · cập nhật lúc " +
-      new Date().toLocaleTimeString("vi-VN") + " · tự làm mới mỗi " + BOARD_REFRESH_MS / 1000 + " giây";
+    updateResetButton();
+    els.boardMeta.textContent = (rows.length ? rows.length + " người chơi" : "Đang chờ người chơi đầu tiên") +
+      " · cập nhật lúc " + new Date().toLocaleTimeString("vi-VN") + " · tự làm mới mỗi " + BOARD_REFRESH_MS / 1000 + " giây";
 
     var me = els.boardList.querySelector(".me");
     if (boardScrollToMe) {
@@ -2227,10 +2257,17 @@
     }).then(function () { boardLoading = false; });
   }
 
+  /* Nút xóa chỉ hiện ở chế độ quản trị VÀ khi bảng đang có dữ liệu */
+  function updateResetButton() {
+    els.btnReset.hidden = !(boardAdmin && boardCount > 0);
+  }
+
   function openBoard(backTo, admin) {
     boardBackTo = backTo;
     boardScrollToMe = true;
-    els.btnReset.hidden = !admin;
+    boardAdmin = !!admin;
+    boardCount = 0;              // chưa biết số người: ẩn nút xóa cho tới khi tải xong
+    updateResetButton();
     fireworks.stop();
     els.boardMeta.textContent = "⏳ Đang tải…";
     showScreen("board");
@@ -2241,7 +2278,8 @@
 
   function closeBoard() {
     clearInterval(boardTimer);
-    els.btnReset.hidden = true;
+    boardAdmin = false;
+    updateResetButton();
     if (location.hash === BOARD_HASH || location.hash === ADMIN_HASH) {
       history.replaceState(null, "", location.pathname + location.search);
     }
@@ -2283,8 +2321,8 @@
       els.adminPassword.value = "";
       els.resetDialog.close();
       sfx.correct();
-      boardNotice = "✅ " + r.message;
-      setTimeout(function () { boardNotice = ""; }, 60000);
+      renderBoard([]);           // bảng trống ngay, không chờ tải lại
+      $("btnRefresh").focus();    // nút xóa vừa ẩn: chuyển focus sang nút còn hiện
       loadBoard();
     }).catch(function (err) {
       sfx.wrong();
@@ -2351,7 +2389,7 @@
   function openBoardFromHash() {
     var admin = location.hash === ADMIN_HASH;
     if (location.hash !== BOARD_HASH && !admin) return;
-    if (activeScreen === screens.board) { els.btnReset.hidden = !admin; return; }
+    if (activeScreen === screens.board) { boardAdmin = admin; updateResetButton(); return; }
     openBoard(Object.keys(screens).filter(function (key) { return screens[key] === activeScreen; })[0], admin);
   }
   openBoardFromHash();
