@@ -1256,7 +1256,7 @@
     <p class="form-error" id="resetError" role="alert"></p>
     <div class="btn-row">
       <button class="btn btn-ghost" id="btnResetCancel" type="button">Hủy</button>
-      <button class="btn btn-danger" id="btnResetConfirm" type="submit">Lưu trữ &amp; xóa</button>
+      <button class="btn btn-danger" id="btnResetConfirm" type="submit">Xóa vĩnh viễn</button>
     </div>
   </form>
 </dialog>
@@ -2248,7 +2248,7 @@
     showScreen(boardBackTo);
   }
 
-  /* ---------- Quản trị: lưu trữ rồi xóa bảng xếp hạng ---------- */
+  /* ---------- Quản trị: xóa vĩnh viễn bảng xếp hạng ---------- */
   function setResetting(on) {
     resetting = on;
     els.btnResetConfirm.disabled = on;
@@ -2258,8 +2258,8 @@
   }
 
   function openResetDialog() {
-    els.resetDesc.textContent = "Bảng hiện có " + boardCount + " người chơi. Toàn bộ kết quả sẽ được " +
-      "chuyển vào lưu trữ (khôi phục được bằng SQL) và bảng xếp hạng trở về trống.";
+    els.resetDesc.textContent = "Bảng hiện có " + boardCount + " người chơi. Toàn bộ kết quả sẽ bị " +
+      "XÓA VĨNH VIỄN và không thể khôi phục.";
     els.resetError.textContent = "";
     els.adminPassword.value = "";
     els.resetDialog.showModal();

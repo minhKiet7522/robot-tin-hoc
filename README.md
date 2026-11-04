@@ -13,7 +13,6 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
 | `index.html` | Toàn bộ trò chơi: giao diện, câu hỏi, đăng nhập, bảng xếp hạng |
 | `config.js` | Địa chỉ và khóa công khai của Supabase (bạn tự điền) |
 | `supabase/schema.sql` | Tạo bảng và hàm trên Supabase (chạy một lần) |
-| `supabase/migrate-bo-email.sql` | Chỉ dùng một lần khi chuyển từ bản cũ có email (xóa bảng cũ) |
 
 ## Cách tính điểm và xếp hạng
 
@@ -98,19 +97,6 @@ Mỗi lần sửa code và đẩy lên lại, GitHub Pages tự cập nhật sau
 - [ ] Mở link thật trên điện thoại và chơi thử một lượt.
 - [ ] (Tùy chọn) Xóa dữ liệu chơi thử, xem mục bên dưới.
 
-## Xuất file kết quả (dành cho giáo viên)
-
-Trong **SQL Editor**, chạy lệnh sau, rồi bấm **Export → Download CSV** để tải về mở bằng Excel:
-
-```sql
-select rank as "Hạng", full_name as "Họ và tên",
-       points as "Điểm", first_try as "Đúng ngay lần đầu",
-       wrong_total as "Số lần sai", round(duration_ms / 1000.0) as "Thời gian (giây)",
-       played_at as "Thời điểm"
-from private.ranked()
-order by rank;
-```
-
 ## Xóa bảng xếp hạng để bắt đầu tiết mới (nút dành cho giáo viên)
 
 1. **Đặt mật khẩu quản trị một lần.** Trong SQL Editor, chạy lệnh sau (ít nhất 8 ký tự). Chạy lại lệnh này để đổi mật khẩu.
@@ -119,53 +105,12 @@ order by rank;
    ```
    Mật khẩu chỉ lưu dạng mã hóa trong Supabase, không nằm trong code. Đừng ghi mật khẩu vào file nào trong repo.
 2. **Mở link quản trị** `https://<tên-github>.github.io/<tên-repo>/#quan-tri`. Bảng xếp hạng sẽ có thêm nút đỏ **🗑 Xóa bảng xếp hạng**. Người chơi mở link thường không thấy nút này.
-3. Bấm nút, nhập mật khẩu rồi bấm **Lưu trữ & xóa**. Bảng trở về trống, và mọi máy đang mở bảng xếp hạng sẽ cập nhật trong vòng 15 giây.
+3. Bấm nút, nhập mật khẩu rồi bấm **Xóa vĩnh viễn**. Bảng trở về trống, và mọi máy đang mở bảng xếp hạng sẽ cập nhật trong vòng 15 giây.
 
-- Kết quả **không mất**: mỗi lần xóa tạo một **đợt lưu trữ** mới, xem hoặc khôi phục được bằng SQL ở bên dưới.
+- ⚠️ Đây là **xóa vĩnh viễn**: toàn bộ người chơi và lượt chơi bị xóa khỏi CSDL, **không lưu trữ và không khôi phục được**.
 - Nhập sai mật khẩu **5 lần liên tiếp** thì bị khóa **10 phút**. Đặt lại mật khẩu bằng lệnh ở bước 1 sẽ mở khóa ngay.
 - Người đang chơi dở lúc xóa vẫn chơi bình thường. Kết quả của họ sẽ hiện trên bảng mới.
-
-### Xem các đợt đã lưu trữ
-```sql
-select archive_id as "Đợt", archived_at as "Thời điểm xóa",
-       count(distinct player_id) as "Số người", count(*) as "Số lượt"
-from private.archived_plays
-group by 1, 2
-order by 1 desc;
-```
-
-### Xuất kết quả một đợt ra Excel (thay `1` bằng số đợt)
-```sql
-with latest as (
-  select distinct on (player_id) *
-  from private.archived_plays
-  where archive_id = 1
-  order by player_id, played_at desc
-)
-select rank() over (order by points desc, duration_ms) as "Hạng",
-       full_name as "Họ và tên", points as "Điểm",
-       round(duration_ms / 1000.0) as "Thời gian (giây)"
-from latest
-order by 1;
-```
-
-### Khôi phục một đợt lên bảng xếp hạng (thay `1` bằng số đợt)
-```sql
-insert into public.players (player_id, full_name)
-select distinct on (player_id) player_id, full_name
-from private.archived_plays where archive_id = 1
-order by player_id, played_at desc
-on conflict (player_id) do nothing;
-
-insert into public.plays (player_id, wrong_tries, points, first_try, wrong_total, duration_ms, created_at)
-select player_id, wrong_tries, points, first_try, wrong_total, duration_ms, played_at
-from private.archived_plays where archive_id = 1;
-```
-
-### Xóa vĩnh viễn (không lưu trữ)
-```sql
-truncate public.plays, public.players;
-```
+- Cũng có thể xóa thẳng trong SQL Editor (không cần mật khẩu): `truncate public.plays, public.players;`
 
 ## Sửa câu hỏi
 

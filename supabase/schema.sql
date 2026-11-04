@@ -204,7 +204,7 @@ where points is distinct from private.calc_points(wrong_tries);
 
 -- =====================================================================
 -- QUẢN TRỊ: nút "Xóa bảng xếp hạng" (mở bằng link .../#quan-tri)
--- Kết quả KHÔNG mất: được chuyển vào private.archived_plays theo từng đợt.
+-- Xóa VĨNH VIỄN toàn bộ người chơi và lượt chơi (không lưu trữ, không khôi phục được).
 -- Mật khẩu chỉ lưu dạng băm bcrypt trong CSDL, không bao giờ nằm trong code.
 --
 -- Đặt / đổi mật khẩu (giáo viên tự chạy trong SQL Editor, ít nhất 8 ký tự):
@@ -226,21 +226,9 @@ create table if not exists private.admin_attempts (
   created_at timestamptz not null default now()
 );
 
-create sequence if not exists private.archive_seq;
-
-create table if not exists private.archived_plays (
-  archive_id  bigint not null,
-  archived_at timestamptz not null,
-  player_id   uuid not null,
-  full_name   text not null,
-  wrong_tries int[] not null,
-  points      int not null,
-  first_try   int not null,
-  wrong_total int not null,
-  duration_ms int not null,
-  played_at   timestamptz not null
-);
-create index if not exists archived_plays_archive_idx on private.archived_plays (archive_id);
+-- Bản trước có lưu trữ theo đợt: nay bỏ hẳn
+drop table if exists private.archived_plays;
+drop sequence if exists private.archive_seq;
 
 create or replace function private.set_admin_password(p_password text)
 returns text
@@ -258,22 +246,22 @@ begin
 end
 $$;
 
--- Lưu trữ toàn bộ lượt chơi hiện có rồi làm trống bảng xếp hạng.
+-- Xóa vĩnh viễn toàn bộ người chơi + lượt chơi, bảng xếp hạng trở về trống.
 -- Sai mật khẩu thì TRẢ VỀ ok = false (không raise) để lần thử sai được ghi lại;
 -- sai 5 lần liên tiếp trong 10 phút thì tạm khóa 10 phút.
-create or replace function public.reset_leaderboard(p_password text)
-returns table (ok boolean, message text, archived int)
+drop function if exists public.reset_leaderboard(text);   -- kiểu trả về đã đổi so với bản trước
+create function public.reset_leaderboard(p_password text)
+returns table (ok boolean, message text, deleted int)
 language plpgsql
 security definer
 set search_path = ''
 as $$
 #variable_conflict use_column
 declare
-  v_hash    text;
-  v_fails   int;
-  v_archive bigint;
-  v_now     timestamptz := now();
-  v_count   int;
+  v_hash  text;
+  v_fails int;
+  v_now   timestamptz := now();
+  v_count int;
 begin
   select c.password_hash into v_hash from private.admin_config c where c.id = 1;
   if v_hash is null then
@@ -302,18 +290,10 @@ begin
   -- và để lượt gửi đúng lúc này chờ xong rồi mới ghi vào bảng mới
   lock table public.players, public.plays in exclusive mode;
 
-  v_archive := nextval('private.archive_seq');
-  insert into private.archived_plays
-    (archive_id, archived_at, player_id, full_name, wrong_tries, points, first_try, wrong_total, duration_ms, played_at)
-  select v_archive, v_now, p.player_id, pl.full_name, p.wrong_tries, p.points, p.first_try,
-         p.wrong_total, p.duration_ms, p.created_at
-  from public.plays p
-  join public.players pl on pl.player_id = p.player_id;
-  get diagnostics v_count = row_count;
-
+  select count(distinct p.player_id) into v_count from public.plays p;
   delete from public.players;   -- plays xóa theo nhờ "on delete cascade"
 
-  return query select true, 'Đã lưu trữ ' || v_count || ' lượt chơi (đợt #' || v_archive || ')', v_count;
+  return query select true, 'Đã xóa vĩnh viễn kết quả của ' || v_count || ' người chơi', v_count;
 end
 $$;
 
