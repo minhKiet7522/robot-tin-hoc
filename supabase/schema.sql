@@ -241,7 +241,7 @@ begin
   insert into private.admin_config (id, password_hash)
   values (1, extensions.crypt(p_password, extensions.gen_salt('bf')))
   on conflict (id) do update set password_hash = excluded.password_hash, updated_at = now();
-  delete from private.admin_attempts;   -- đặt lại mật khẩu thì mở khóa luôn
+  delete from private.admin_attempts where true;   -- đặt lại mật khẩu thì mở khóa luôn
   return 'Đã đặt mật khẩu quản trị';
 end
 $$;
@@ -291,7 +291,9 @@ begin
   lock table public.players, public.plays in exclusive mode;
 
   select count(distinct p.player_id) into v_count from public.plays p;
-  delete from public.players;   -- plays xóa theo nhờ "on delete cascade"
+  -- "where true" là bắt buộc: Supabase bật pg_safeupdate, chặn DELETE không có WHERE
+  -- khi gọi qua API (lỗi "DELETE requires a WHERE clause"). plays xóa theo nhờ cascade.
+  delete from public.players where true;
 
   return query select true, 'Đã xóa vĩnh viễn kết quả của ' || v_count || ' người chơi', v_count;
 end
