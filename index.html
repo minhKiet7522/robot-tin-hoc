@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Nạp Năng Lượng Cho Robot Tin Học – Cyber Robot Adventure</title>
+<!-- Tải font Inter (có tiếng Việt) để chữ trông giống nhau trên mọi máy.
+     Không có mạng thì tự dùng font có sẵn của máy (Roboto / Segoe UI). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap">
 <style>
   :root {
     --bg: #060a1a;
@@ -1062,7 +1067,6 @@
   .board-empty-title { font-size: 1.25em; font-weight: 900; color: var(--cyan); }
   .board-empty-sub { color: var(--muted); max-width: 24em; text-wrap: balance; }
   @keyframes emptyFloat { 50% { transform: translateY(-0.25em); } }
-  @media (prefers-reduced-motion: reduce) { .board-empty-icon { animation: none; } }
 
   #fireworks {
     position: fixed;
@@ -1113,9 +1117,9 @@
     .board-cols { padding-inline: calc(0.6em + 0.2em + 1px); }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
-  }
+  /* Không tắt hiệu ứng theo "prefers-reduced-motion": Windows tắt "Animation effects"
+     thì Chrome báo "reduce", làm mọi chuyển động đứng yên chỉ trên máy tính.
+     Trò chơi cần hiệu ứng giống hệt nhau trên mọi thiết bị. */
 </style>
 </head>
 <body>
@@ -2383,6 +2387,8 @@
   setEnergy(0);
   fitActive();
   window.addEventListener("load", fitActive);
+  /* Font Inter tải xong có thể làm chữ rộng/hẹp hơn: co giãn lại cho vừa màn hình */
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitActive);
 
   /* Link dành cho giáo viên: .../#bang-xep-hang mở thẳng bảng xếp hạng (trình chiếu),
      .../#quan-tri mở bảng xếp hạng kèm nút xóa */
