@@ -38,7 +38,13 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
 
 ## Khi bấm "Bắt đầu"
 
-Trò chơi lưu họ tên và mã thiết bị lên Supabase (hàm `register_player`), **chờ máy chủ xác nhận rồi mới vào trạm 1**. Thường chỉ mất dưới 1 giây. Trong lúc chờ, nút hiện *“⏳ Đang lưu thông tin…”* và không bấm thêm được, nên không bị gửi trùng. Nếu mạng lỗi hoặc máy chủ không trả lời sau **8 giây**, trò chơi báo lỗi và cho bấm thử lại.
+Trò chơi lưu họ tên và mã thiết bị lên Supabase (hàm `register_player`) và **chờ máy chủ xác nhận**. Thường chỉ mất dưới 1 giây. Trong lúc chờ, nút hiện *“⏳ Đang lưu thông tin…”* và không bấm thêm được, nên không bị gửi trùng. Nếu mạng lỗi hoặc máy chủ không trả lời sau **8 giây**, trò chơi báo lỗi và cho bấm thử lại.
+
+Sau khi lưu xong:
+
+- **Giáo viên chưa bấm "Bắt đầu trò chơi"** (trong trang quản trị): người chơi vào **phòng chờ**. Màn hình hiện *“Đang chờ giáo viên bắt đầu”* kèm số bạn đã sẵn sàng, và cứ khoảng 3 giây hỏi máy chủ một lần (hàm `get_game_status`). Khi giáo viên bấm bắt đầu, mọi máy **tự vào trạm 1** trong vòng vài giây. Thời gian làm bài chỉ tính từ lúc vào trạm 1. Trong phòng chờ có nút *“✏️ Đổi tên”* để quay lại sửa họ tên.
+- **Trò chơi đã bắt đầu**: ai vào sau cũng **vào trạm 1 ngay**, không phải chờ. Chơi lại cũng vậy.
+- Mất mạng lúc chờ: màn hình báo *“Mất kết nối máy chủ, đang thử lại…”* và tự thử lại. Không cần bấm gì.
 
 Người mới đăng ký mà chưa chơi xong sẽ **chưa** xuất hiện trên bảng xếp hạng. Họ chỉ có mặt trong bảng `players` trên Supabase.
 
@@ -100,11 +106,16 @@ Mỗi lần sửa code và đẩy lên lại, GitHub Pages tự cập nhật sau
 - [ ] Mở dashboard Supabase. Gói free **tạm dừng dự án sau khoảng 7 ngày không có hoạt động**. Nếu thấy *Paused*, bấm **Restore** và đợi vài phút.
 - [ ] Mở link thật trên điện thoại và chơi thử một lượt.
 - [ ] (Tùy chọn) Xóa dữ liệu chơi thử trong trang quản trị, xem mục bên dưới.
+- [ ] Trong trang quản trị, kiểm tra khung **Điều khiển trò chơi** đang là *Phòng chờ đang mở*. Nếu đang là *đang diễn ra* (từ tiết trước), bấm **⏸ Mở lại phòng chờ**.
 
 ## Trang quản trị (dành cho giáo viên)
 
 Mở `https://<tên-github>.github.io/<tên-repo>/admin.html` (link cũ `…/#quan-tri` cũng tự chuyển tới đây). Đăng nhập bằng tên đăng nhập và mật khẩu quản trị để:
 
+- **🎮 Điều khiển trò chơi** (khung đầu trang):
+  - *Phòng chờ đang mở* (màu vàng): học sinh bấm "Bắt đầu" xong sẽ phải chờ. Khung hiện số người đã sẵn sàng. Bấm **▶ Bắt đầu trò chơi** để tất cả cùng vào trạm 1.
+  - *Trò chơi đang diễn ra* (màu xanh): ai vào sau được chơi ngay. Bấm **⏸ Mở lại phòng chờ** khi muốn bắt đầu lượt mới, ví dụ tiết học sau. Người đang chơi dở vẫn chơi tiếp bình thường.
+  - Danh sách tự làm mới mỗi 5 giây, nên giáo viên thấy học sinh vào phòng chờ ngay trên màn hình.
 - Xem **toàn bộ người chơi**, kể cả người đã bấm "Bắt đầu" nhưng chưa chơi xong. Mỗi dòng có hạng, điểm, thời gian, số lượt và lần chơi gần nhất. Ô tìm kiếm không cần gõ dấu, ví dụ gõ "nguyen" vẫn tìm ra "Nguyễn".
 - **✏️ Sửa họ tên** một người chơi. Điểm và thời gian do máy chủ tự tính nên không sửa tay được. Lưu ý: nếu người đó chơi lại trên máy của họ, tên sẽ đổi theo tên họ nhập lúc bắt đầu.
 - **🗑 Xóa** một người chơi, kèm mọi lượt chơi của người đó.

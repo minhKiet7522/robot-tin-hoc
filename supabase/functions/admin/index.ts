@@ -3,7 +3,9 @@
 //
 //   { action: "login", username, password }          → { token, expires_at }
 //   { action: "logout", token }                       → { ok: true }
-//   { action: "list", token }                         → { players: [...] }
+//   { action: "list", token }                         → { players: [...], game: { started, started_at, ready } }
+//   { action: "game_start", token }                   → { game: { started: true, started_at } }
+//   { action: "game_stop", token }                    → { game: { started: false, started_at: null } }
 //   { action: "update", token, player_id, full_name } → { player: { player_id, full_name } }
 //   { action: "delete", token, player_id }            → { full_name }
 //   { action: "delete_all", token }                   → { deleted }
@@ -110,8 +112,20 @@ async function handle(body: Record<string, unknown>): Promise<unknown> {
     case "logout":
       await callSql("admin_logout", { p_token: token(body) });
       return { ok: true };
-    case "list":
-      return { players: await callSql("admin_list_players", { p_token: token(body) }) };
+    case "list": {
+      // Kiểm tra phiên trước (admin_list_players báo 401 nếu sai), rồi mới lấy trạng thái trò chơi
+      const players = await callSql("admin_list_players", { p_token: token(body) });
+      const game = (await callSql("get_game_status", {}) as unknown[])?.[0] ?? null;
+      return { players, game };
+    }
+    case "game_start":
+    case "game_stop": {
+      const rows = await callSql("admin_set_game", {
+        p_token: token(body),
+        p_started: body.action === "game_start",
+      }) as unknown[];
+      return { game: rows?.[0] ?? null };
+    }
     case "update": {
       const rows = await callSql("admin_update_player", {
         p_token: token(body),

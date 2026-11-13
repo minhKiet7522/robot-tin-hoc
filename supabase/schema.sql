@@ -12,6 +12,7 @@
 --   register_player – lưu họ tên khi bấm "Bắt đầu"
 --   submit_score    – gửi một lượt chơi, máy chủ tự tính điểm và thứ hạng
 --   get_leaderboard – bảng xếp hạng (không trả về player_id của ai cả)
+-- Thêm get_game_status: màn hình phòng chờ hỏi giáo viên đã cho bắt đầu chưa.
 -- Các hàm quản trị admin_* (cuối file) chỉ Edge Function "admin" gọi được.
 -- =====================================================================
 
@@ -93,10 +94,40 @@ as $$
   join public.players pl on pl.player_id = l.player_id
 $$;
 
--- Lưu người chơi khi bấm "Bắt đầu" (trò chơi chờ hàm này thành công rồi mới vào trạm 1).
--- Upsert theo player_id nên bấm lại / nhiều người cùng lúc đều an toàn; trả về họ tên đã lưu.
-create or replace function public.register_player(p_player_id uuid, p_full_name text)
-returns table (full_name text)
+-- ---------------------------------------------------------------------
+-- PHÒNG CHỜ: người chơi bấm "Bắt đầu" xong phải chờ giáo viên cho phép
+-- (nút "Bắt đầu trò chơi" trong admin.html). Đã bắt đầu rồi thì ai vào sau
+-- cũng chơi ngay. "Mở lại phòng chờ" đưa trò chơi về trạng thái chờ.
+-- ---------------------------------------------------------------------
+create table if not exists private.game_state (
+  id         int primary key default 1 check (id = 1),
+  started    boolean not null default false,
+  started_at timestamptz,                         -- lúc giáo viên bấm bắt đầu (null khi đang chờ)
+  updated_at timestamptz not null default now()   -- lần đổi trạng thái gần nhất
+);
+insert into private.game_state (id) values (1) on conflict (id) do nothing;
+
+-- Màn hình chờ hỏi hàm này vài giây một lần.
+-- ready: số người đã bấm "Bắt đầu" kể từ lần đổi trạng thái gần nhất (để hiện "N bạn đã sẵn sàng").
+create or replace function public.get_game_status()
+returns table (started boolean, started_at timestamptz, ready int)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(g.started, false), g.started_at,
+         (select count(*)::int from public.players p
+          where p.updated_at >= coalesce(g.updated_at, '-infinity'))
+  from (select 1) as one
+  left join private.game_state g on g.id = 1
+$$;
+
+-- Lưu người chơi khi bấm "Bắt đầu". Upsert theo player_id nên bấm lại / nhiều người cùng lúc
+-- đều an toàn. Trả về họ tên đã lưu và trò chơi đã bắt đầu chưa (chưa thì vào phòng chờ).
+drop function if exists public.register_player(uuid, text);   -- kiểu trả về đã đổi so với bản trước
+create function public.register_player(p_player_id uuid, p_full_name text)
+returns table (full_name text, game_started boolean)
 language plpgsql
 security definer
 set search_path = ''
@@ -112,7 +143,8 @@ begin
   insert into public.players (player_id, full_name) values (p_player_id, v_name)
   on conflict (player_id) do update set full_name = excluded.full_name, updated_at = now();
 
-  return query select v_name;
+  return query
+    select v_name, coalesce((select g.started from private.game_state g where g.id = 1), false);
 end
 $$;
 
@@ -193,9 +225,11 @@ revoke all on function private.ranked() from public;
 revoke all on function public.register_player(uuid, text) from public;
 revoke all on function public.submit_score(uuid, text, int[], int) from public;
 revoke all on function public.get_leaderboard(uuid, int) from public;
+revoke all on function public.get_game_status() from public;
 grant execute on function public.register_player(uuid, text) to anon, authenticated;
 grant execute on function public.submit_score(uuid, text, int[], int) to anon, authenticated;
 grant execute on function public.get_leaderboard(uuid, int) to anon, authenticated;
+grant execute on function public.get_game_status() to anon, authenticated, service_role;
 
 -- Quy đổi các lượt chơi đã có sang công thức điểm hiện tại (vd thang 400 cũ → 1000).
 -- Chạy lại an toàn: chỉ cập nhật lượt nào có điểm khác với công thức.
@@ -205,7 +239,8 @@ where points is distinct from private.calc_points(wrong_tries);
 
 -- =====================================================================
 -- QUẢN TRỊ: trang admin.html (đăng nhập bằng tên đăng nhập + mật khẩu)
--- Xem, sửa họ tên, xóa từng người chơi hoặc xóa VĨNH VIỄN toàn bộ người chơi.
+-- Xem, sửa họ tên, xóa từng người chơi hoặc xóa VĨNH VIỄN toàn bộ người chơi;
+-- bắt đầu trò chơi / mở lại phòng chờ.
 --
 -- Các hàm admin_* CHỈ cấp quyền cho service_role: trình duyệt KHÔNG gọi thẳng
 -- được, mà phải đi qua Edge Function "admin" (supabase/functions/admin), nơi giữ
@@ -438,6 +473,30 @@ begin
 end
 $$;
 
+-- Bắt đầu trò chơi (p_started = true) hoặc mở lại phòng chờ (false).
+-- Bấm "bắt đầu" khi đang chạy thì giữ nguyên giờ bắt đầu cũ.
+create or replace function public.admin_set_game(p_token text, p_started boolean)
+returns table (started boolean, started_at timestamptz)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+  perform private.admin_check(p_token);
+  if p_started is null then
+    raise exception 'Thiếu trạng thái trò chơi';
+  end if;
+  insert into private.game_state (id) values (1) on conflict (id) do nothing;
+  update private.game_state g
+  set started    = p_started,
+      started_at = case when p_started then now() end,
+      updated_at = now()
+  where g.id = 1 and g.started is distinct from p_started;
+  return query select g.started, g.started_at from private.game_state g where g.id = 1;
+end
+$$;
+
 revoke all on function private.set_admin_account(text, text) from public;
 revoke all on function private.admin_check(text) from public;
 -- Supabase tự cấp quyền chạy hàm mới cho anon/authenticated: phải thu hồi rõ ràng
@@ -447,6 +506,8 @@ revoke all on function public.admin_list_players(text)              from public,
 revoke all on function public.admin_update_player(text, uuid, text) from public, anon, authenticated;
 revoke all on function public.admin_delete_player(text, uuid)       from public, anon, authenticated;
 revoke all on function public.admin_delete_all(text)                from public, anon, authenticated;
+revoke all on function public.admin_set_game(text, boolean)         from public, anon, authenticated;
+grant execute on function public.admin_set_game(text, boolean)        to service_role;
 grant execute on function public.admin_login(text, text)               to service_role;
 grant execute on function public.admin_logout(text)                    to service_role;
 grant execute on function public.admin_list_players(text)              to service_role;

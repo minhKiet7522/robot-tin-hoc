@@ -154,6 +154,30 @@
   .topbar .session { font-size: 13px; color: var(--muted); margin-top: 2px; }
   .topbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
+  /* ---------- Điều khiển trò chơi (phòng chờ / đang diễn ra) ---------- */
+  .game-panel {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px 20px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .game-panel[data-state="waiting"] { border-color: rgba(255, 210, 63, 0.6); }
+  .game-panel[data-state="started"] { border-color: rgba(57, 255, 159, 0.6); }
+  .game-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 280px; }
+  .game-info h2 { font-size: 17px; font-weight: 900; }
+  .game-status { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 800; }
+  .game-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); }
+  .game-panel[data-state="waiting"] .game-status { color: var(--yellow); }
+  .game-panel[data-state="waiting"] .game-dot { background: var(--yellow); animation: dotPulse 1.4s ease-in-out infinite; }
+  .game-panel[data-state="started"] .game-status { color: var(--green); }
+  .game-panel[data-state="started"] .game-dot { background: var(--green); box-shadow: 0 0 10px var(--green); }
+  @keyframes dotPulse { 50% { opacity: 0.35; } }
+  .game-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .btn-start { min-height: 52px; padding: 12px 28px; font-size: 18px; }
+
   .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
   .stat { padding: 14px 16px; }
   .stat-value { font-size: 28px; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; }
@@ -269,6 +293,8 @@
     .stat-value { font-size: 22px; }
     .stat-label { font-size: 12px; }
     .players { padding: 12px; }
+    .game-panel { padding: 14px; }
+    .game-actions, .game-actions .btn { width: 100%; }
     thead { display: none; }
     table, tbody, tr, td { display: block; width: 100%; }
     tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -318,6 +344,18 @@
       <button class="btn btn-ghost" id="btnLogout" type="button">Đăng xuất</button>
     </div>
   </header>
+
+  <section class="panel game-panel" id="gamePanel" data-state="loading" aria-labelledby="gameTitle">
+    <div class="game-info">
+      <h2 id="gameTitle">🎮 Điều khiển trò chơi</h2>
+      <p class="game-status"><span class="game-dot" aria-hidden="true"></span><span id="gameStatusText">⏳ Đang tải…</span></p>
+      <p class="hint" id="gameHint"></p>
+    </div>
+    <div class="game-actions">
+      <button class="btn btn-start" id="btnGameStart" type="button" hidden>▶ Bắt đầu trò chơi</button>
+      <button class="btn btn-ghost" id="btnGameStop" type="button" hidden>⏸ Mở lại phòng chờ</button>
+    </div>
+  </section>
 
   <section class="stats" aria-label="Thống kê">
     <div class="panel stat"><div class="stat-value" id="statTotal">–</div><div class="stat-label">Người chơi</div></div>
@@ -432,11 +470,17 @@
     deleteDialog: $("deleteDialog"), deleteForm: $("deleteForm"), deleteDesc: $("deleteDesc"), deleteError: $("deleteError"), btnDeleteConfirm: $("btnDeleteConfirm"),
     deleteAllDialog: $("deleteAllDialog"), deleteAllForm: $("deleteAllForm"), deleteAllDesc: $("deleteAllDesc"),
     deleteAllConfirm: $("deleteAllConfirm"), deleteAllError: $("deleteAllError"), btnDeleteAllConfirm: $("btnDeleteAllConfirm"),
-    toast: $("toast")
+    toast: $("toast"),
+    gamePanel: $("gamePanel"), gameStatusText: $("gameStatusText"), gameHint: $("gameHint"),
+    btnGameStart: $("btnGameStart"), btnGameStop: $("btnGameStop")
   };
 
   var session = loadSession();   // { token, expires_at }
   var players = [];
+  var game = null;               // { started, started_at, ready }
+  var loaded = false;            // đã tải danh sách lần đầu chưa
+  var gameBusy = false;          // đang gửi lệnh bắt đầu / mở lại phòng chờ
+  var AUTO_REFRESH_MS = 5000;    // tự làm mới để thấy học sinh vào phòng chờ
   var loading = false;
   var busy = false;              // đang lưu / xóa: khóa các hộp thoại
   var target = null;             // người chơi đang sửa / xóa
@@ -545,6 +589,9 @@
 
   /* ---------- Màn hình ---------- */
   function showLogin(message) {
+    players = [];
+    game = null;
+    loaded = false;
     els.appView.hidden = true;
     els.loginView.hidden = false;
     els.loginError.textContent = message ? "⚠️ " + message : "";
@@ -608,9 +655,11 @@
     if (loading || !session) return;
     loading = true;
     els.btnRefresh.disabled = true;
-    if (!players.length) els.listMeta.textContent = "⏳ Đang tải…";
+    if (!loaded) els.listMeta.textContent = "⏳ Đang tải…";
     api("list").then(function (r) {
       players = r.players || [];
+      if (!gameBusy) game = r.game || null;   // đang gửi lệnh thì giữ trạng thái vừa bấm
+      loaded = true;
       render();
     }).catch(function (err) {
       if (err.status === 401) handleError(err);
@@ -621,7 +670,52 @@
     });
   }
 
+  /* ---------- Điều khiển trò chơi ---------- */
+  function renderGame() {
+    var state = !game ? "loading" : game.started ? "started" : "waiting";
+    els.gamePanel.dataset.state = state;
+    els.btnGameStart.hidden = state !== "waiting";
+    els.btnGameStop.hidden = state !== "started";
+    els.btnGameStart.disabled = els.btnGameStop.disabled = gameBusy;
+    if (state === "loading") {
+      els.gameStatusText.textContent = "⏳ Đang tải…";
+      els.gameHint.textContent = "";
+    } else if (state === "waiting") {
+      els.gameStatusText.textContent = "Phòng chờ đang mở · " + game.ready + " người đã sẵn sàng";
+      els.gameHint.textContent = "Học sinh nhập họ tên và bấm “Bắt đầu” sẽ phải chờ ở đây. " +
+        "Bấm “Bắt đầu trò chơi” để tất cả cùng vào chơi.";
+    } else {
+      els.gameStatusText.textContent = "Trò chơi đang diễn ra từ " + formatDate(game.started_at);
+      els.gameHint.textContent = "Ai vào sau sẽ được chơi ngay. Bấm “Mở lại phòng chờ” khi muốn bắt đầu lượt mới " +
+        "(người đang chơi dở vẫn chơi tiếp bình thường).";
+    }
+  }
+
+  function setGame(started) {
+    if (gameBusy) return;
+    gameBusy = true;
+    var btn = started ? els.btnGameStart : els.btnGameStop;
+    var label = btn.textContent;
+    btn.textContent = started ? "⏳ Đang bắt đầu…" : "⏳ Đang mở phòng chờ…";
+    renderGame();
+    api(started ? "game_start" : "game_stop").then(function (r) {
+      game = Object.assign({}, game, r.game, { ready: started ? (game && game.ready) || 0 : 0 });
+      toast(started ? "🚀 Trò chơi đã bắt đầu! Học sinh đang vào trạm 1" : "⏸ Đã mở lại phòng chờ");
+    }).catch(function (err) {
+      handleError(err);
+    }).then(function () {
+      gameBusy = false;
+      btn.textContent = label;
+      renderGame();
+      loadPlayers();
+    });
+  }
+
+  els.btnGameStart.addEventListener("click", function () { setGame(true); });
+  els.btnGameStop.addEventListener("click", function () { setGame(false); });
+
   function render() {
+    renderGame();
     var done = players.filter(function (p) { return p.rank != null; }).length;
     els.statTotal.textContent = players.length;
     els.statDone.textContent = done;
@@ -648,7 +742,7 @@
 
       var nameCell = node("td", "col-name");
       nameCell.appendChild(node("span", "name", p.full_name));
-      if (!finished) nameCell.appendChild(node("span", "badge", "Chưa chơi xong"));
+      if (!finished) nameCell.appendChild(node("span", "badge", game && !game.started ? "Đang chờ" : "Chưa chơi xong"));
       tr.appendChild(nameCell);
 
       var pts = node("td", "col-num");
@@ -693,6 +787,10 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden && session && !els.appView.hidden) loadPlayers();
   });
+  /* Tự làm mới khi trang đang mở (không làm mới lúc đang sửa / xóa) */
+  setInterval(function () {
+    if (session && !els.appView.hidden && !document.hidden && !busy && !gameBusy) loadPlayers();
+  }, AUTO_REFRESH_MS);
 
   /* ---------- Hộp thoại dùng chung ---------- */
   function setBusy(dialog, on, label) {

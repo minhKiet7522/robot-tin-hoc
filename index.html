@@ -564,6 +564,44 @@
   }
   .station-chip span { display: block; font-size: 1.35em; line-height: 1.2; }
   .hero .battery-wrap { width: min(100%, 26em); text-align: left; }
+
+  /* ---------- Phòng chờ (chờ giáo viên bắt đầu) ---------- */
+  .waiting[hidden], .login-form[hidden], .hint[hidden] { display: none; }
+  .waiting {
+    width: min(100%, 26em);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.9em 1.2em;
+    border-radius: var(--radius);
+    border: 1.5px solid rgba(255, 210, 63, 0.55);
+    background: rgba(255, 210, 63, 0.08);
+    animation: screenIn 0.45s ease both;
+  }
+  .waiting-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55em;
+    font-weight: 900;
+    font-size: 1.1em;
+    color: var(--yellow);
+    text-shadow: 0 0 10px rgba(255, 210, 63, 0.4);
+    text-wrap: balance;
+  }
+  .waiting-spinner {
+    flex: none;
+    width: 1em;
+    height: 1em;
+    border-radius: 50%;
+    border: 0.16em solid rgba(255, 210, 63, 0.25);
+    border-top-color: var(--yellow);
+    animation: spin 0.9s linear infinite;
+  }
+  .waiting-text { font-size: 0.92em; color: var(--text); line-height: 1.45; text-wrap: pretty; }
+  .waiting-text strong { color: var(--cyan); }
+  .waiting-count { min-height: 1.4em; font-size: 0.85em; font-weight: 700; color: var(--muted); }
+  .waiting-count.err { color: #ffb3c0; }
   .hint { color: var(--muted); font-size: 0.78em; text-wrap: balance; }
 
   .result-title {
@@ -1135,7 +1173,14 @@
           <p class="form-error" id="loginError" role="alert"></p>
           <button class="btn btn-big btn-pulse" id="btnStart" type="submit">⚡ Bắt đầu nạp năng lượng</button>
         </form>
-        <p class="hint">Mẹo: dùng phím <strong>A, B, C, D</strong> (hoặc 1–4) để chọn đáp án, <strong>Enter</strong> để sang trạm&nbsp;mới.</p>
+        <!-- Phòng chờ: đã lưu họ tên, chờ giáo viên bấm "Bắt đầu trò chơi" trong trang quản trị -->
+        <div class="waiting" id="waitBox" hidden>
+          <p class="waiting-title"><span class="waiting-spinner" aria-hidden="true"></span>Đang chờ giáo viên bắt đầu</p>
+          <p class="waiting-text" id="waitText"></p>
+          <p class="waiting-count" id="waitCount" aria-live="polite"></p>
+          <button class="link-btn" id="btnWaitCancel" type="button">✏️ Đổi tên</button>
+        </div>
+        <p class="hint" id="introHint">Mẹo: dùng phím <strong>A, B, C, D</strong> (hoặc 1–4) để chọn đáp án, <strong>Enter</strong> để sang trạm&nbsp;mới.</p>
       </div>
     </div>
   </section>
@@ -1455,7 +1500,12 @@
     rankText: $("rankText"),
     btnRetrySubmit: $("btnRetrySubmit"),
     boardMeta: $("boardMeta"),
-    boardList: $("boardList")
+    boardList: $("boardList"),
+    introHint: $("introHint"),
+    waitBox: $("waitBox"),
+    waitText: $("waitText"),
+    waitCount: $("waitCount"),
+    btnWaitCancel: $("btnWaitCancel")
   };
 
   Object.keys(robots).forEach(function (key, i) {
@@ -2006,6 +2056,8 @@
   var BOARD_HASH = "#bang-xep-hang";
   var ADMIN_HASH = "#quan-tri";        // link cũ của giáo viên: nay chuyển sang trang admin.html
   var REGISTER_TIMEOUT_MS = 8000;
+  var WAIT_POLL_MS = 3000;             // phòng chờ: hỏi máy chủ mỗi ~3 giây (cộng thêm ngẫu nhiên tới 1 giây)
+  var WAIT_TIMEOUT_MS = 8000;
   var PLAYER_KEY = "robotQuiz.player";
   var DEVICE_KEY = "robotQuiz.deviceId";
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -2114,7 +2166,8 @@
     els.loginForm.setAttribute("aria-busy", String(on));
   }
 
-  /* Lưu họ tên lên Supabase; chỉ khi máy chủ xác nhận mới vào trạm 1 */
+  /* Lưu họ tên lên Supabase; chỉ khi máy chủ xác nhận mới đi tiếp:
+     giáo viên đã bắt đầu trò chơi thì vào trạm 1 ngay, chưa thì vào phòng chờ */
   function registerAndStart(p) {
     setRegistering(true);
     els.loginError.textContent = "";
@@ -2125,13 +2178,82 @@
       player = { name: saved.full_name };
       savePlayer(player);
       sfx.click();
-      startGame();
+      if (saved.game_started === false) enterWaiting();
+      else startGame();
     }).catch(function (err) {
       setRegistering(false);
       sfx.wrong();
       els.loginError.textContent = "⚠️ Chưa lưu được thông tin: " + err.message + ". Bấm “Bắt đầu” để thử lại.";
       if (activeScreen === screens.intro) fitActive();
     });
+  }
+
+  /* ---------- Phòng chờ: hỏi máy chủ định kỳ, giáo viên bắt đầu thì tự vào trạm 1 ---------- */
+  var waiting = false;
+  var waitTimer = 0;
+  var waitPolling = false;
+  var waitFails = 0;
+
+  function showWaitBox(on) {
+    els.loginForm.hidden = on;
+    els.introHint.hidden = on;
+    els.waitBox.hidden = !on;
+    if (activeScreen === screens.intro) fitActive();
+  }
+
+  function enterWaiting() {
+    waiting = true;
+    waitFails = 0;
+    els.waitText.textContent = "";
+    els.waitText.appendChild(document.createTextNode("Xin chào "));
+    els.waitText.appendChild(node("strong", null, player.name));
+    els.waitText.appendChild(document.createTextNode("! Bạn đã vào phòng chờ. Trò chơi sẽ tự bắt đầu khi giáo viên cho phép."));
+    els.waitCount.textContent = "";
+    els.waitCount.classList.remove("err");
+    showWaitBox(true);
+    els.btnWaitCancel.focus();
+    scheduleWaitPoll(WAIT_POLL_MS);
+  }
+
+  function leaveWaiting() {
+    waiting = false;
+    clearTimeout(waitTimer);
+    showWaitBox(false);
+  }
+
+  /* Cộng thêm ngẫu nhiên để 50 máy không cùng hỏi máy chủ một lúc */
+  function scheduleWaitPoll(delay) {
+    clearTimeout(waitTimer);
+    waitTimer = setTimeout(pollGameStatus, delay + Math.random() * 1000);
+  }
+
+  function pollGameStatus() {
+    if (!waiting || waitPolling) return;
+    waitPolling = true;
+    rpc("get_game_status", {}, WAIT_TIMEOUT_MS).then(function (rows) {
+      var s = rows && rows[0];
+      if (!s) throw new Error("máy chủ không trả về trạng thái");
+      waitFails = 0;
+      if (!waiting) return;
+      /* Đang xem bảng xếp hạng thì chờ quay lại màn đầu rồi mới vào trạm 1 */
+      if (s.started && activeScreen === screens.intro) {
+        leaveWaiting();
+        sfx.correct();
+        startGame();
+        return;
+      }
+      els.waitCount.classList.remove("err");
+      els.waitCount.textContent = s.started
+        ? "🚀 Trò chơi đã bắt đầu!"
+        : "👥 Đã có " + s.ready + " bạn sẵn sàng";
+      scheduleWaitPoll(WAIT_POLL_MS);
+    }).catch(function () {
+      waitFails++;
+      if (!waiting) return;
+      els.waitCount.classList.add("err");
+      els.waitCount.textContent = "⚠️ Mất kết nối máy chủ, đang thử lại…";
+      scheduleWaitPoll(Math.min(WAIT_POLL_MS * (1 + waitFails), 15000));   // mạng lỗi: hỏi thưa dần
+    }).then(function () { waitPolling = false; });
   }
 
   function setRankStatus(state, text, canRetry) {
@@ -2232,6 +2354,7 @@
       history.replaceState(null, "", location.pathname + location.search);
     }
     showScreen(boardBackTo);
+    if (waiting && boardBackTo === "intro") scheduleWaitPoll(0);   // về phòng chờ: hỏi ngay
   }
 
   /* ================= SỰ KIỆN ================= */
@@ -2245,6 +2368,12 @@
   els.playerName.addEventListener("input", function () {
     els.playerName.removeAttribute("aria-invalid");
     els.loginError.textContent = "";
+  });
+  els.btnWaitCancel.addEventListener("click", function () {
+    sfx.click();
+    leaveWaiting();
+    els.playerName.focus();
+    els.playerName.select();
   });
   els.btnNext.addEventListener("click", nextStation);
   els.btnRetrySubmit.addEventListener("click", function () { sfx.click(); submitResult(); });
@@ -2294,6 +2423,8 @@
   /* Tab hiện lại (hoặc máy chiếu vừa thức dậy): tải bảng mới ngay, không chờ đủ 15 giây */
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden && activeScreen === screens.board) loadBoard();
+    /* Điện thoại tắt màn hình lúc chờ: mở lại thì hỏi ngay, không chờ hết nhịp */
+    if (!document.hidden && waiting) scheduleWaitPoll(0);
   });
 })();
 </script>
