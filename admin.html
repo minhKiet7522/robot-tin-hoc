@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Quản trị – Robot Tin Học</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap">
+<style>
+  /* Cùng bảng màu với trò chơi (index.html) */
+  :root {
+    --bg: #060a1a;
+    --bg-2: #0b1430;
+    --panel: rgba(14, 22, 54, 0.85);
+    --panel-border: rgba(34, 228, 255, 0.28);
+    --line: rgba(34, 228, 255, 0.14);
+    --cyan: #22e4ff;
+    --green: #39ff9f;
+    --red: #ff4d6d;
+    --orange: #ff9f43;
+    --yellow: #ffd23f;
+    --text: #e8f1ff;
+    --muted: #a3b3d6;
+    --danger-text: #ffb3c0;
+    --radius: 16px;
+    --font: Inter, Roboto, "Segoe UI", Arial, sans-serif;
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--text);
+    background:
+      radial-gradient(circle at 15% 0%, rgba(34, 228, 255, 0.14), transparent 40%),
+      radial-gradient(circle at 90% 100%, rgba(164, 107, 255, 0.16), transparent 45%),
+      var(--bg);
+    background-attachment: fixed;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  button, input { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .wrap { width: 100%; max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: var(--radius);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: rgba(34, 228, 255, 0.08);
+    color: var(--cyan);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- Nút ---------- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 999px;
+    font-weight: 800;
+    line-height: 1.2;
+    cursor: pointer;
+    color: #04101f;
+    background: linear-gradient(135deg, var(--cyan), var(--green));
+    transition: box-shadow 0.2s, opacity 0.2s;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .btn:hover { box-shadow: 0 6px 22px rgba(34, 228, 255, 0.35); }
+  .btn:focus-visible, .icon-btn:focus-visible { outline: 3px solid var(--yellow); outline-offset: 2px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+  .btn-ghost { color: var(--text); background: rgba(34, 228, 255, 0.08); box-shadow: 0 0 0 1.5px rgba(34, 228, 255, 0.5) inset; }
+  .btn-ghost:hover { box-shadow: 0 0 0 1.5px var(--cyan) inset; }
+  .btn-danger { color: #fff; background: linear-gradient(135deg, var(--red), var(--orange)); }
+  .btn-danger:hover { box-shadow: 0 6px 22px rgba(255, 77, 109, 0.45); }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 34px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--panel-border);
+    background: rgba(34, 228, 255, 0.06);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .icon-btn:hover { border-color: var(--cyan); }
+  .icon-btn.danger { border-color: rgba(255, 77, 109, 0.5); color: var(--danger-text); background: rgba(255, 77, 109, 0.08); }
+  .icon-btn.danger:hover { border-color: var(--red); }
+
+  /* ---------- Ô nhập ---------- */
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(34, 228, 255, 0.4);
+    background: rgba(3, 7, 20, 0.75);
+    font-size: 16px;   /* 16px: điện thoại không tự phóng to khi gõ */
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .input::placeholder { color: rgba(163, 179, 214, 0.55); }
+  .input:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34, 228, 255, 0.25); }
+  .input[aria-invalid="true"] { border-color: var(--red); box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.2); }
+  .form-error { min-height: 1.4em; font-size: 13px; font-weight: 700; color: var(--danger-text); }
+  .hint { font-size: 13px; color: var(--muted); }
+
+  /* ---------- Đăng nhập ---------- */
+  .login-view { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .login-card { width: min(100%, 400px); padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .login-card h1 { font-size: 24px; font-weight: 900; line-height: 1.25; }
+  .login-card .btn { width: 100%; margin-top: 4px; }
+  .login-card .back { font-size: 13px; color: var(--muted); text-align: center; }
+  .login-card .back a { color: var(--cyan); }
+
+  /* ---------- Trang quản trị ---------- */
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  .topbar h1 { font-size: 26px; font-weight: 900; line-height: 1.2; margin-top: 6px; }
+  .topbar .session { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .topbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat { padding: 14px 16px; }
+  .stat-value { font-size: 28px; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .stat-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .stat:nth-child(1) .stat-value { color: var(--cyan); }
+  .stat:nth-child(2) .stat-value { color: var(--green); }
+  .stat:nth-child(3) .stat-value { color: var(--yellow); }
+
+  .players { padding: 16px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+  .toolbar .input { flex: 1 1 240px; }
+  .list-meta { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  td { padding: 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr:hover { background: rgba(34, 228, 255, 0.04); }
+  .col-rank { width: 64px; font-weight: 800; }
+  .col-num { text-align: right; white-space: nowrap; }
+  .col-time { white-space: nowrap; color: var(--muted); font-size: 13px; }
+  .col-actions { text-align: right; white-space: nowrap; }
+  .col-actions .icon-btn + .icon-btn { margin-left: 6px; }
+  .name { font-weight: 700; overflow-wrap: anywhere; }
+  .points { font-weight: 900; color: var(--green); }
+  .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--yellow);
+    border: 1px solid rgba(255, 210, 63, 0.4);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .muted { color: var(--muted); }
+  .empty { padding: 36px 12px; text-align: center; color: var(--muted); }
+  .empty strong { display: block; font-size: 17px; color: var(--text); margin-bottom: 4px; }
+
+  .danger-zone {
+    margin-top: 16px;
+    padding: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-color: rgba(255, 77, 109, 0.45);
+  }
+  .danger-zone h2 { font-size: 16px; font-weight: 900; color: var(--danger-text); }
+  .danger-zone p { font-size: 13px; color: var(--muted); max-width: 60ch; }
+
+  /* ---------- Hộp thoại ---------- */
+  dialog {
+    margin: auto;
+    width: min(calc(100vw - 32px), 440px);
+    padding: 22px 20px;
+    border-radius: var(--radius);
+    border: 1px solid var(--panel-border);
+    background: #0d1636;
+    color: var(--text);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  }
+  dialog.is-danger { border-color: rgba(255, 77, 109, 0.6); }
+  dialog::backdrop { background: rgba(3, 6, 18, 0.75); }
+  dialog form { display: flex; flex-direction: column; gap: 12px; }
+  dialog h3 { font-size: 19px; font-weight: 900; }
+  dialog.is-danger h3 { color: var(--danger-text); }
+  dialog p { font-size: 14px; color: var(--muted); }
+  dialog p strong { color: var(--text); }
+  .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+
+  /* ---------- Thông báo nhỏ ---------- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translate(-50%, 20px);
+    max-width: calc(100vw - 32px);
+    padding: 10px 18px;
+    border-radius: 999px;
+    background: #10204a;
+    border: 1px solid var(--cyan);
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s, transform 0.25s;
+    z-index: 10;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.error { border-color: var(--red); color: var(--danger-text); }
+
+  /* ---------- Điện thoại: mỗi người chơi là một thẻ ---------- */
+  @media (max-width: 720px) {
+    .wrap { padding-top: 16px; }
+    .topbar h1 { font-size: 22px; }
+    .stats { gap: 8px; }
+    .stat { padding: 10px 12px; }
+    .stat-value { font-size: 22px; }
+    .stat-label { font-size: 12px; }
+    .players { padding: 12px; }
+    thead { display: none; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+    td { border: none; padding: 2px 0; }
+    td[data-label] { display: flex; justify-content: space-between; gap: 12px; text-align: right; }
+    td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 13px; text-align: left; }
+    .col-rank { display: inline-block; width: auto; margin-right: 6px; }
+    .col-name { display: inline; }
+    .col-actions { text-align: left; padding-top: 8px; }
+    .col-actions .icon-btn { min-height: 38px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== ĐĂNG NHẬP ===== -->
+<main class="login-view" id="loginView">
+  <form class="panel login-card" id="loginForm" novalidate>
+    <div>
+      <span class="tag">Robot Tin học</span>
+      <h1>🔐 Đăng nhập quản trị</h1>
+    </div>
+    <div class="field">
+      <label for="username">Tên đăng nhập</label>
+      <input class="input" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" required>
+    </div>
+    <div class="field">
+      <label for="password">Mật khẩu</label>
+      <input class="input" id="password" name="password" type="password" autocomplete="current-password" maxlength="200" required>
+    </div>
+    <p class="form-error" id="loginError" role="alert"></p>
+    <button class="btn" id="btnLogin" type="submit">Đăng nhập</button>
+    <p class="back"><a href="./">⬅ Về trò chơi</a></p>
+  </form>
+</main>
+
+<!-- ===== QUẢN LÝ NGƯỜI CHƠI ===== -->
+<div class="wrap" id="appView" hidden>
+  <header class="topbar">
+    <div>
+      <span class="tag">Trang quản trị</span>
+      <h1>Quản lý người chơi</h1>
+      <p class="session" id="sessionInfo"></p>
+    </div>
+    <div class="topbar-actions">
+      <a class="btn btn-ghost" href="./#bang-xep-hang" target="_blank" rel="noopener">🏆 Bảng xếp hạng</a>
+      <button class="btn btn-ghost" id="btnLogout" type="button">Đăng xuất</button>
+    </div>
+  </header>
+
+  <section class="stats" aria-label="Thống kê">
+    <div class="panel stat"><div class="stat-value" id="statTotal">–</div><div class="stat-label">Người chơi</div></div>
+    <div class="panel stat"><div class="stat-value" id="statDone">–</div><div class="stat-label">Đã chơi xong</div></div>
+    <div class="panel stat"><div class="stat-value" id="statPending">–</div><div class="stat-label">Chưa chơi xong</div></div>
+  </section>
+
+  <section class="panel players" aria-labelledby="playersTitle">
+    <h2 id="playersTitle" hidden>Danh sách người chơi</h2>
+    <div class="toolbar">
+      <input class="input" id="search" type="search" placeholder="🔎 Tìm theo họ tên…" aria-label="Tìm theo họ tên" autocomplete="off">
+      <button class="btn btn-ghost" id="btnRefresh" type="button">🔄 Làm mới</button>
+    </div>
+    <p class="list-meta" id="listMeta" aria-live="polite">⏳ Đang tải…</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-rank">Hạng</th>
+            <th>Họ và tên</th>
+            <th class="col-num">Điểm</th>
+            <th class="col-num">Thời gian</th>
+            <th class="col-num">Số lượt</th>
+            <th>Chơi gần nhất</th>
+            <th class="col-actions"><span class="sr-only">Thao tác</span></th>
+          </tr>
+        </thead>
+        <tbody id="playerRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel danger-zone">
+    <div>
+      <h2>⚠️ Xóa toàn bộ người chơi</h2>
+      <p>Xóa vĩnh viễn mọi người chơi và lượt chơi, bảng xếp hạng trở về trống. Không khôi phục được.</p>
+    </div>
+    <button class="btn btn-danger" id="btnDeleteAll" type="button" disabled>🗑 Xóa toàn bộ</button>
+  </section>
+</div>
+
+<!-- ===== HỘP THOẠI: SỬA HỌ TÊN ===== -->
+<dialog id="editDialog" aria-labelledby="editTitle">
+  <form id="editForm" novalidate>
+    <h3 id="editTitle">✏️ Sửa họ tên</h3>
+    <div class="field">
+      <label for="editName">Họ và tên</label>
+      <input class="input" id="editName" maxlength="80" autocomplete="off" required>
+    </div>
+    <p class="hint">Nếu người này chơi lại trên máy của họ, tên sẽ đổi theo tên họ nhập lúc bắt đầu chơi.</p>
+    <p class="form-error" id="editError" role="alert"></p>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" type="button" data-close>Hủy</button>
+      <button class="btn" id="btnEditSave" type="submit">Lưu</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ===== HỘP THOẠI: XÓA MỘT NGƯỜI CHƠI ===== -->
+<dialog class="is-danger" id="deleteDialog" aria-labelledby="deleteTitle">
+  <form id="deleteForm" novalidate>
+    <h3 id="deleteTitle">🗑 Xóa người chơi</h3>
+    <p id="deleteDesc"></p>
+    <p class="form-error" id="deleteError" role="alert"></p>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" type="button" data-close>Hủy</button>
+      <button class="btn btn-danger" id="btnDeleteConfirm" type="submit">Xóa vĩnh viễn</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ===== HỘP THOẠI: XÓA TOÀN BỘ ===== -->
+<dialog class="is-danger" id="deleteAllDialog" aria-labelledby="deleteAllTitle">
+  <form id="deleteAllForm" novalidate>
+    <h3 id="deleteAllTitle">⚠️ Xóa toàn bộ người chơi</h3>
+    <p id="deleteAllDesc"></p>
+    <div class="field">
+      <label for="deleteAllConfirm">Gõ chữ XÓA để xác nhận</label>
+      <input class="input" id="deleteAllConfirm" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    </div>
+    <p class="form-error" id="deleteAllError" role="alert"></p>
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" type="button" data-close>Hủy</button>
+      <button class="btn btn-danger" id="btnDeleteAllConfirm" type="submit" disabled>Xóa vĩnh viễn</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var CONFIG = window.APP_CONFIG || {};
+  var API_URL = String(CONFIG.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+  var API_KEY = String(CONFIG.SUPABASE_KEY || "").trim();
+  var SESSION_KEY = "robotQuiz.adminSession";
+  var TIMEOUT_MS = 15000;
+  var MEDALS = ["🥇", "🥈", "🥉"];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = {
+    loginView: $("loginView"), loginForm: $("loginForm"), username: $("username"), password: $("password"),
+    loginError: $("loginError"), btnLogin: $("btnLogin"),
+    appView: $("appView"), sessionInfo: $("sessionInfo"), btnLogout: $("btnLogout"),
+    statTotal: $("statTotal"), statDone: $("statDone"), statPending: $("statPending"),
+    search: $("search"), btnRefresh: $("btnRefresh"), listMeta: $("listMeta"), rows: $("playerRows"),
+    btnDeleteAll: $("btnDeleteAll"),
+    editDialog: $("editDialog"), editForm: $("editForm"), editName: $("editName"), editError: $("editError"), btnEditSave: $("btnEditSave"),
+    deleteDialog: $("deleteDialog"), deleteForm: $("deleteForm"), deleteDesc: $("deleteDesc"), deleteError: $("deleteError"), btnDeleteConfirm: $("btnDeleteConfirm"),
+    deleteAllDialog: $("deleteAllDialog"), deleteAllForm: $("deleteAllForm"), deleteAllDesc: $("deleteAllDesc"),
+    deleteAllConfirm: $("deleteAllConfirm"), deleteAllError: $("deleteAllError"), btnDeleteAllConfirm: $("btnDeleteAllConfirm"),
+    toast: $("toast")
+  };
+
+  var session = loadSession();   // { token, expires_at }
+  var players = [];
+  var loading = false;
+  var busy = false;              // đang lưu / xóa: khóa các hộp thoại
+  var target = null;             // người chơi đang sửa / xóa
+
+  /* ---------- Phiên đăng nhập: chỉ giữ trong tab này, đóng tab là mất ---------- */
+  function loadSession() {
+    try {
+      var s = JSON.parse(sessionStorage.getItem(SESSION_KEY));
+      if (s && s.token && new Date(s.expires_at) > new Date()) return s;
+    } catch (e) { /* trình duyệt chặn lưu: coi như chưa đăng nhập */ }
+    return null;
+  }
+  function saveSession(s) {
+    session = s;
+    try {
+      if (s) sessionStorage.setItem(SESSION_KEY, JSON.stringify(s));
+      else sessionStorage.removeItem(SESSION_KEY);
+    } catch (e) { /* bỏ qua */ }
+  }
+
+  /* Chặn nhầm khóa bí mật (service_role / secret) – repo công khai nên lộ khóa là mất toàn quyền DB */
+  function isSecretKey(key) {
+    if (/^sb_secret_/.test(key)) return true;
+    try {
+      var payload = key.split(".")[1];
+      return !!payload && JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))).role === "service_role";
+    } catch (e) { return false; }
+  }
+
+  /* Gọi Edge Function "admin". Lỗi có err.status (401 = phiên hết hạn / sai đăng nhập) */
+  function api(action, data) {
+    if (!API_URL || !API_KEY) return Promise.reject(new Error("Chưa cấu hình máy chủ (config.js)"));
+    if (isSecretKey(API_KEY)) return Promise.reject(new Error("config.js đang dùng khóa BÍ MẬT – hãy thay bằng khóa publishable"));
+    var body = Object.assign({ action: action }, data || {});
+    if (action !== "login" && session) body.token = session.token;
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, TIMEOUT_MS) : 0;
+    return fetch(API_URL + "/functions/v1/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: API_KEY, Authorization: "Bearer " + API_KEY },
+      body: JSON.stringify(body),
+      signal: ctrl ? ctrl.signal : undefined
+    }).catch(function (err) {
+      clearTimeout(timer);
+      throw new Error(err && err.name === "AbortError"
+        ? "Máy chủ phản hồi quá lâu, mạng có thể đang chậm"
+        : "Không kết nối được máy chủ, hãy kiểm tra mạng");
+    }).then(function (res) {
+      clearTimeout(timer);
+      return res.json().catch(function () { return null; }).then(function (json) {
+        if (!res.ok) {
+          var err = new Error((json && (json.error || json.message)) || "Lỗi máy chủ (" + res.status + ")");
+          err.status = res.status;
+          throw err;
+        }
+        return json;
+      });
+    });
+  }
+
+  /* Phiên hết hạn giữa chừng: đóng mọi hộp thoại, quay về màn đăng nhập */
+  function handleError(err, showIn) {
+    if (err.status === 401) {
+      [els.editDialog, els.deleteDialog, els.deleteAllDialog].forEach(function (d) { if (d.open) d.close(); });
+      saveSession(null);
+      showLogin(err.message);
+      return;
+    }
+    if (showIn) showIn.textContent = "⚠️ " + err.message;
+    else toast("⚠️ " + err.message, true);
+  }
+
+  /* ---------- Tiện ích hiển thị ---------- */
+  var toastTimer = 0;
+  function toast(msg, isError) {
+    els.toast.textContent = msg;
+    els.toast.classList.toggle("error", !!isError);
+    els.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { els.toast.classList.remove("show"); }, 3500);
+  }
+
+  function node(tag, cls, text) {
+    var el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text != null) el.textContent = String(text);   // luôn dùng textContent: họ tên do người chơi tự nhập
+    return el;
+  }
+
+  function formatDuration(ms) {
+    var s = Math.round(ms / 1000);
+    var sec = s % 60;
+    return Math.floor(s / 60) + ":" + (sec < 10 ? "0" : "") + sec;
+  }
+
+  function formatDate(iso) {
+    var d = new Date(iso);
+    return d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) + " " +
+      d.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  /* Tìm không phân biệt dấu: "nguyen" khớp "Nguyễn" */
+  function fold(s) {
+    return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
+  }
+
+  /* ---------- Màn hình ---------- */
+  function showLogin(message) {
+    els.appView.hidden = true;
+    els.loginView.hidden = false;
+    els.loginError.textContent = message ? "⚠️ " + message : "";
+    els.password.value = "";
+    (els.username.value ? els.password : els.username).focus();
+  }
+
+  function showApp() {
+    els.loginView.hidden = true;
+    els.appView.hidden = false;
+    els.sessionInfo.textContent = "Phiên đăng nhập hết hạn lúc " + formatDate(session.expires_at);
+    loadPlayers();
+  }
+
+  /* ---------- Đăng nhập / đăng xuất ---------- */
+  function setLoginBusy(on) {
+    els.btnLogin.disabled = on;
+    els.username.readOnly = on;
+    els.password.readOnly = on;
+    els.btnLogin.textContent = on ? "⏳ Đang đăng nhập…" : "Đăng nhập";
+  }
+
+  els.loginForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (els.btnLogin.disabled) return;
+    var username = els.username.value.trim();
+    var password = els.password.value;
+    els.username.setAttribute("aria-invalid", String(!username));
+    els.password.setAttribute("aria-invalid", String(!password));
+    if (!username || !password) {
+      els.loginError.textContent = "Bạn hãy nhập tên đăng nhập và mật khẩu.";
+      (username ? els.password : els.username).focus();
+      return;
+    }
+    setLoginBusy(true);
+    els.loginError.textContent = "";
+    api("login", { username: username, password: password }).then(function (r) {
+      saveSession({ token: r.token, expires_at: r.expires_at });
+      els.password.value = "";
+      showApp();
+    }).catch(function (err) {
+      els.loginError.textContent = "⚠️ " + err.message;
+      els.password.select();
+    }).then(function () { setLoginBusy(false); });
+  });
+  [els.username, els.password].forEach(function (input) {
+    input.addEventListener("input", function () { input.removeAttribute("aria-invalid"); els.loginError.textContent = ""; });
+  });
+
+  els.btnLogout.addEventListener("click", function () {
+    var done = function () { saveSession(null); players = []; showLogin(); };
+    els.btnLogout.disabled = true;
+    api("logout").catch(function () { /* phiên đã hết hạn cũng được */ }).then(function () {
+      els.btnLogout.disabled = false;
+      done();
+    });
+  });
+
+  /* ---------- Danh sách người chơi ---------- */
+  function loadPlayers() {
+    if (loading || !session) return;
+    loading = true;
+    els.btnRefresh.disabled = true;
+    if (!players.length) els.listMeta.textContent = "⏳ Đang tải…";
+    api("list").then(function (r) {
+      players = r.players || [];
+      render();
+    }).catch(function (err) {
+      if (err.status === 401) handleError(err);
+      else els.listMeta.textContent = "⚠️ Không tải được danh sách: " + err.message + ".";
+    }).then(function () {
+      loading = false;
+      els.btnRefresh.disabled = false;
+    });
+  }
+
+  function render() {
+    var done = players.filter(function (p) { return p.rank != null; }).length;
+    els.statTotal.textContent = players.length;
+    els.statDone.textContent = done;
+    els.statPending.textContent = players.length - done;
+    els.btnDeleteAll.disabled = !players.length;
+
+    var q = fold(els.search.value);
+    var shown = q ? players.filter(function (p) { return fold(p.full_name).indexOf(q) !== -1; }) : players;
+
+    els.rows.innerHTML = "";
+    if (!shown.length) {
+      var tr = node("tr");
+      var td = node("td", "empty");
+      td.colSpan = 7;
+      td.appendChild(node("strong", null, players.length ? "Không có ai khớp với từ khóa" : "Chưa có người chơi nào"));
+      td.appendChild(document.createTextNode(players.length ? "Thử gõ tên khác." : "Người chơi sẽ xuất hiện ở đây khi bấm “Bắt đầu” trong trò chơi."));
+      tr.appendChild(td);
+      els.rows.appendChild(tr);
+    }
+    shown.forEach(function (p) {
+      var finished = p.rank != null;
+      var tr = node("tr");
+      tr.appendChild(node("td", "col-rank", finished ? (MEDALS[p.rank - 1] || "#" + p.rank) : "—"));
+
+      var nameCell = node("td", "col-name");
+      nameCell.appendChild(node("span", "name", p.full_name));
+      if (!finished) nameCell.appendChild(node("span", "badge", "Chưa chơi xong"));
+      tr.appendChild(nameCell);
+
+      var pts = node("td", "col-num");
+      pts.dataset.label = "Điểm";
+      pts.appendChild(node("span", finished ? "points" : "muted", finished ? p.points : "—"));
+      tr.appendChild(pts);
+
+      var dur = node("td", "col-num", finished ? "⏱ " + formatDuration(p.duration_ms) : "—");
+      dur.dataset.label = "Thời gian";
+      tr.appendChild(dur);
+
+      var cnt = node("td", "col-num", p.plays);
+      cnt.dataset.label = "Số lượt";
+      tr.appendChild(cnt);
+
+      var when = node("td", "col-time", finished ? formatDate(p.last_played) : "Đăng ký " + formatDate(p.created_at));
+      when.dataset.label = "Chơi gần nhất";
+      tr.appendChild(when);
+
+      var actions = node("td", "col-actions");
+      var edit = node("button", "icon-btn", "✏️ Sửa");
+      edit.type = "button";
+      edit.setAttribute("aria-label", "Sửa họ tên " + p.full_name);
+      edit.addEventListener("click", function () { openEdit(p); });
+      var del = node("button", "icon-btn danger", "🗑 Xóa");
+      del.type = "button";
+      del.setAttribute("aria-label", "Xóa " + p.full_name);
+      del.addEventListener("click", function () { openDelete(p); });
+      actions.appendChild(edit);
+      actions.appendChild(del);
+      tr.appendChild(actions);
+
+      els.rows.appendChild(tr);
+    });
+
+    els.listMeta.textContent = (q ? "Tìm thấy " + shown.length + " / " + players.length : players.length) +
+      " người chơi · cập nhật lúc " + new Date().toLocaleTimeString("vi-VN");
+  }
+
+  els.search.addEventListener("input", function () { if (players.length) render(); });
+  els.btnRefresh.addEventListener("click", loadPlayers);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && session && !els.appView.hidden) loadPlayers();
+  });
+
+  /* ---------- Hộp thoại dùng chung ---------- */
+  function setBusy(dialog, on, label) {
+    busy = on;
+    dialog.querySelectorAll("button, input").forEach(function (el) {
+      if (el.tagName === "INPUT") el.readOnly = on; else el.disabled = on;
+    });
+    var submit = dialog.querySelector("button[type=submit]");
+    if (on) { submit.dataset.label = submit.textContent; submit.textContent = label; }
+    else if (submit.dataset.label) submit.textContent = submit.dataset.label;
+  }
+
+  [els.editDialog, els.deleteDialog, els.deleteAllDialog].forEach(function (dialog) {
+    dialog.querySelector("[data-close]").addEventListener("click", function () { if (!busy) dialog.close(); });
+    dialog.addEventListener("cancel", function (e) { if (busy) e.preventDefault(); });   // phím Esc
+  });
+
+  /* ---------- Sửa họ tên ---------- */
+  function openEdit(p) {
+    target = p;
+    els.editName.value = p.full_name;
+    els.editName.removeAttribute("aria-invalid");
+    els.editError.textContent = "";
+    els.editDialog.showModal();
+    els.editName.select();
+  }
+
+  els.editForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy || !target) return;
+    var name = els.editName.value.replace(/\s+/g, " ").trim();
+    if (name.length < 2) {
+      els.editName.setAttribute("aria-invalid", "true");
+      els.editError.textContent = "Họ tên cần ít nhất 2 ký tự.";
+      els.editName.focus();
+      return;
+    }
+    if (name === target.full_name) { els.editDialog.close(); return; }
+    var p = target;
+    setBusy(els.editDialog, true, "⏳ Đang lưu…");
+    els.editError.textContent = "";
+    api("update", { player_id: p.player_id, full_name: name }).then(function (r) {
+      p.full_name = (r.player && r.player.full_name) || name;
+      setBusy(els.editDialog, false);
+      els.editDialog.close();
+      render();
+      toast("✅ Đã đổi tên thành “" + p.full_name + "”");
+    }).catch(function (err) {
+      setBusy(els.editDialog, false);
+      if (err.status === 404) { els.editDialog.close(); toast("⚠️ " + err.message, true); loadPlayers(); return; }
+      handleError(err, els.editError);
+    });
+  });
+  els.editName.addEventListener("input", function () { els.editName.removeAttribute("aria-invalid"); els.editError.textContent = ""; });
+
+  /* ---------- Xóa một người chơi ---------- */
+  function openDelete(p) {
+    target = p;
+    els.deleteDesc.textContent = "";
+    els.deleteDesc.appendChild(document.createTextNode("Xóa vĩnh viễn "));
+    els.deleteDesc.appendChild(node("strong", null, p.full_name));
+    els.deleteDesc.appendChild(document.createTextNode(
+      " và " + p.plays + " lượt chơi của người này? Không khôi phục được."));
+    els.deleteError.textContent = "";
+    els.deleteDialog.showModal();
+    els.btnDeleteConfirm.focus();
+  }
+
+  els.deleteForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy || !target) return;
+    var p = target;
+    setBusy(els.deleteDialog, true, "⏳ Đang xóa…");
+    els.deleteError.textContent = "";
+    api("delete", { player_id: p.player_id }).then(function () {
+      setBusy(els.deleteDialog, false);
+      els.deleteDialog.close();
+      toast("🗑 Đã xóa “" + p.full_name + "”");
+      loadPlayers();   // tải lại để thứ hạng những người còn lại được tính lại
+    }).catch(function (err) {
+      setBusy(els.deleteDialog, false);
+      if (err.status === 404) { els.deleteDialog.close(); toast("Người chơi này đã bị xóa trước đó"); loadPlayers(); return; }
+      handleError(err, els.deleteError);
+    });
+  });
+
+  /* ---------- Xóa toàn bộ ---------- */
+  function confirmWordOk() {
+    return fold(els.deleteAllConfirm.value) === "xoa";
+  }
+
+  els.btnDeleteAll.addEventListener("click", function () {
+    els.deleteAllDesc.textContent = "";
+    els.deleteAllDesc.appendChild(document.createTextNode("Toàn bộ "));
+    els.deleteAllDesc.appendChild(node("strong", null, players.length + " người chơi"));
+    els.deleteAllDesc.appendChild(document.createTextNode(
+      " cùng mọi lượt chơi sẽ bị XÓA VĨNH VIỄN, bảng xếp hạng trở về trống. Không khôi phục được."));
+    els.deleteAllConfirm.value = "";
+    els.deleteAllError.textContent = "";
+    els.btnDeleteAllConfirm.disabled = true;
+    els.deleteAllDialog.showModal();
+    els.deleteAllConfirm.focus();
+  });
+  els.deleteAllConfirm.addEventListener("input", function () {
+    els.btnDeleteAllConfirm.disabled = !confirmWordOk();
+    els.deleteAllError.textContent = "";
+  });
+
+  els.deleteAllForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (busy) return;
+    if (!confirmWordOk()) { els.deleteAllError.textContent = "Hãy gõ đúng chữ XÓA."; return; }
+    setBusy(els.deleteAllDialog, true, "⏳ Đang xóa…");
+    api("delete_all").then(function (r) {
+      setBusy(els.deleteAllDialog, false);
+      els.deleteAllDialog.close();
+      els.search.value = "";
+      players = [];
+      render();
+      toast("🗑 Đã xóa vĩnh viễn " + r.deleted + " người chơi");
+      loadPlayers();
+    }).catch(function (err) {
+      setBusy(els.deleteAllDialog, false);
+      els.btnDeleteAllConfirm.disabled = !confirmWordOk();
+      handleError(err, els.deleteAllError);
+    });
+  });
+
+  /* ---------- Khởi động ---------- */
+  if (session) showApp(); else showLogin();
+})();
+</script>
+</body>
+</html>

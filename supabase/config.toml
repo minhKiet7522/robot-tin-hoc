@@ -5,3 +5,7 @@ project_id = "robot-tin-hoc"
 # Hàm nào cần bảo vệ thì tự kiểm tra trong code (vd. mật khẩu quản trị).
 [functions.health]
 verify_jwt = false
+
+# Trang quản trị: tự kiểm tra phiên đăng nhập admin bên trong hàm
+[functions.admin]
+verify_jwt = false

@@ -12,6 +12,7 @@
 --   register_player – lưu họ tên khi bấm "Bắt đầu"
 --   submit_score    – gửi một lượt chơi, máy chủ tự tính điểm và thứ hạng
 --   get_leaderboard – bảng xếp hạng (không trả về player_id của ai cả)
+-- Các hàm quản trị admin_* (cuối file) chỉ Edge Function "admin" gọi được.
 -- =====================================================================
 
 create schema if not exists private;   -- schema không được mở ra API
@@ -203,22 +204,31 @@ set points = private.calc_points(wrong_tries)
 where points is distinct from private.calc_points(wrong_tries);
 
 -- =====================================================================
--- QUẢN TRỊ: nút "Xóa bảng xếp hạng" (mở bằng link .../#quan-tri)
--- Xóa VĨNH VIỄN toàn bộ người chơi và lượt chơi (không lưu trữ, không khôi phục được).
--- Mật khẩu chỉ lưu dạng băm bcrypt trong CSDL, không bao giờ nằm trong code.
+-- QUẢN TRỊ: trang admin.html (đăng nhập bằng tên đăng nhập + mật khẩu)
+-- Xem, sửa họ tên, xóa từng người chơi hoặc xóa VĨNH VIỄN toàn bộ người chơi.
 --
--- Đặt / đổi mật khẩu (giáo viên tự chạy trong SQL Editor, ít nhất 8 ký tự):
---   select private.set_admin_password('mật-khẩu-của-bạn');
+-- Các hàm admin_* CHỈ cấp quyền cho service_role: trình duyệt KHÔNG gọi thẳng
+-- được, mà phải đi qua Edge Function "admin" (supabase/functions/admin), nơi giữ
+-- khóa bí mật của máy chủ.
+--
+-- Mật khẩu chỉ lưu dạng băm bcrypt. Đăng nhập thành công nhận một phiên 8 giờ
+-- (CSDL chỉ lưu mã băm SHA-256 của phiên). Sai 5 lần liên tiếp trong 10 phút
+-- thì tạm khóa đăng nhập 10 phút.
+--
+-- Đặt / đổi tài khoản (giáo viên tự chạy trong SQL Editor; mật khẩu ít nhất 8 ký tự):
+--   select private.set_admin_account('ten-dang-nhap', 'mật-khẩu-của-bạn');
+-- Chạy lại lệnh này để đổi mật khẩu: mọi nơi đang đăng nhập bị đăng xuất, và mở khóa luôn.
 -- =====================================================================
 
 create schema if not exists extensions;
 create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists private.admin_config (
-  id            int primary key default 1 check (id = 1),
+  id            int primary key default 1 check (id = 1),   -- chỉ một tài khoản quản trị
   password_hash text not null,
   updated_at    timestamptz not null default now()
 );
+alter table private.admin_config add column if not exists username text;
 
 create table if not exists private.admin_attempts (
   id         bigint generated always as identity primary key,
@@ -226,46 +236,78 @@ create table if not exists private.admin_attempts (
   created_at timestamptz not null default now()
 );
 
--- Bản trước có lưu trữ theo đợt: nay bỏ hẳn
+create table if not exists private.admin_sessions (
+  token_hash text primary key,   -- SHA-256 của mã phiên; mã gốc chỉ nằm ở trình duyệt admin
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
+-- Bản trước: nút "Xóa bảng xếp hạng" ở link #quan-tri chỉ cần mật khẩu. Nay thay bằng admin.html.
+drop function if exists public.reset_leaderboard(text);
+drop function if exists private.set_admin_password(text);
 drop table if exists private.archived_plays;
 drop sequence if exists private.archive_seq;
 
-create or replace function private.set_admin_password(p_password text)
+create or replace function private.set_admin_account(p_username text, p_password text)
 returns text
 language plpgsql
 as $$
+declare
+  v_user text := lower(trim(coalesce(p_username, '')));
 begin
+  if v_user !~ '^[a-z0-9._-]{3,32}$' then
+    raise exception 'Tên đăng nhập cần 3–32 ký tự: chữ không dấu, số, dấu chấm, gạch ngang hoặc gạch dưới';
+  end if;
   if char_length(coalesce(p_password, '')) < 8 then
     raise exception 'Mật khẩu quản trị cần ít nhất 8 ký tự';
   end if;
-  insert into private.admin_config (id, password_hash)
-  values (1, extensions.crypt(p_password, extensions.gen_salt('bf')))
-  on conflict (id) do update set password_hash = excluded.password_hash, updated_at = now();
-  delete from private.admin_attempts where true;   -- đặt lại mật khẩu thì mở khóa luôn
-  return 'Đã đặt mật khẩu quản trị';
+  insert into private.admin_config (id, username, password_hash)
+  values (1, v_user, extensions.crypt(p_password, extensions.gen_salt('bf', 10)))
+  on conflict (id) do update
+    set username = excluded.username, password_hash = excluded.password_hash, updated_at = now();
+  delete from private.admin_attempts where true;   -- mở khóa đăng nhập
+  delete from private.admin_sessions where true;   -- đăng xuất mọi nơi
+  return 'Đã đặt tài khoản quản trị: ' || v_user;
 end
 $$;
 
--- Xóa vĩnh viễn toàn bộ người chơi + lượt chơi, bảng xếp hạng trở về trống.
--- Sai mật khẩu thì TRẢ VỀ ok = false (không raise) để lần thử sai được ghi lại;
--- sai 5 lần liên tiếp trong 10 phút thì tạm khóa 10 phút.
-drop function if exists public.reset_leaderboard(text);   -- kiểu trả về đã đổi so với bản trước
-create function public.reset_leaderboard(p_password text)
-returns table (ok boolean, message text, deleted int)
+-- Báo lỗi 401 (PostgREST đổi SQLSTATE PT401 thành HTTP 401) nếu phiên sai hoặc đã hết hạn
+create or replace function private.admin_check(p_token text)
+returns void
+language plpgsql
+stable
+as $$
+begin
+  if p_token is null or not exists (
+    select 1 from private.admin_sessions s
+    where s.token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex')
+      and s.expires_at > now()
+  ) then
+    raise exception using errcode = 'PT401', message = 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại';
+  end if;
+end
+$$;
+
+-- Sai tài khoản/mật khẩu thì TRẢ VỀ ok = false (không raise) để lần thử sai được ghi lại
+create or replace function public.admin_login(p_username text, p_password text)
+returns table (ok boolean, message text, token text, expires_at timestamptz)
 language plpgsql
 security definer
 set search_path = ''
 as $$
 #variable_conflict use_column
 declare
+  v_user  text;
   v_hash  text;
   v_fails int;
   v_now   timestamptz := now();
-  v_count int;
+  v_match boolean;
+  v_token text;
+  v_exp   timestamptz;
 begin
-  select c.password_hash into v_hash from private.admin_config c where c.id = 1;
-  if v_hash is null then
-    return query select false, 'Chưa thiết lập mật khẩu quản trị (xem README).', 0;
+  select c.username, c.password_hash into v_user, v_hash from private.admin_config c where c.id = 1;
+  if v_user is null then
+    return query select false, 'Chưa thiết lập tài khoản quản trị (xem README).', null::text, null::timestamptz;
     return;
   end if;
 
@@ -275,30 +317,139 @@ begin
     and a.created_at > v_now - interval '10 minutes'
     and a.created_at > coalesce((select max(b.created_at) from private.admin_attempts b where b.success), '-infinity');
   if v_fails >= 5 then
-    return query select false, 'Nhập sai quá nhiều lần. Vui lòng thử lại sau 10 phút.', 0;
+    return query select false, 'Nhập sai quá nhiều lần. Vui lòng thử lại sau 10 phút.', null::text, null::timestamptz;
     return;
   end if;
 
-  if extensions.crypt(coalesce(p_password, ''), v_hash) <> v_hash then
+  -- Luôn băm mật khẩu (kể cả khi sai tên) để thời gian trả lời không lộ tên đăng nhập đúng
+  v_match := extensions.crypt(coalesce(p_password, ''), v_hash) = v_hash;
+  if not v_match or lower(trim(coalesce(p_username, ''))) <> v_user then
     insert into private.admin_attempts (success) values (false);
-    return query select false, 'Mật khẩu quản trị không đúng.', 0;
+    return query select false, 'Sai tên đăng nhập hoặc mật khẩu.', null::text, null::timestamptz;
     return;
   end if;
+
   insert into private.admin_attempts (success) values (true);
+  delete from private.admin_attempts a where a.created_at < v_now - interval '1 day';
+  delete from private.admin_sessions s where s.expires_at < v_now;
 
-  -- Khóa theo đúng thứ tự submit_score ghi (players rồi plays) để không deadlock,
-  -- và để lượt gửi đúng lúc này chờ xong rồi mới ghi vào bảng mới
-  lock table public.players, public.plays in exclusive mode;
+  v_token := encode(extensions.gen_random_bytes(32), 'hex');
+  v_exp   := v_now + interval '8 hours';
+  insert into private.admin_sessions (token_hash, expires_at)
+  values (encode(extensions.digest(v_token, 'sha256'), 'hex'), v_exp);
 
-  select count(distinct p.player_id) into v_count from public.plays p;
-  -- "where true" là bắt buộc: Supabase bật pg_safeupdate, chặn DELETE không có WHERE
-  -- khi gọi qua API (lỗi "DELETE requires a WHERE clause"). plays xóa theo nhờ cascade.
-  delete from public.players where true;
-
-  return query select true, 'Đã xóa vĩnh viễn kết quả của ' || v_count || ' người chơi', v_count;
+  return query select true, 'Đăng nhập thành công', v_token, v_exp;
 end
 $$;
 
-revoke all on function private.set_admin_password(text) from public;
-revoke all on function public.reset_leaderboard(text) from public;
-grant execute on function public.reset_leaderboard(text) to anon, authenticated;
+create or replace function public.admin_logout(p_token text)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from private.admin_sessions s
+  where s.token_hash = encode(extensions.digest(coalesce(p_token, ''), 'sha256'), 'hex')
+$$;
+
+-- Toàn bộ người chơi, kể cả người đã đăng ký nhưng chưa chơi xong (rank/points = null)
+create or replace function public.admin_list_players(p_token text)
+returns table (
+  player_id uuid, full_name text, created_at timestamptz, updated_at timestamptz,
+  plays int, rank int, points int, duration_ms int, last_played timestamptz
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+  perform private.admin_check(p_token);
+  return query
+    select p.player_id, p.full_name, p.created_at, p.updated_at,
+           (select count(*)::int from public.plays x where x.player_id = p.player_id),
+           r.rank, r.points, r.duration_ms, r.played_at
+    from public.players p
+    left join private.ranked() r on r.player_id = p.player_id
+    order by r.rank nulls last, r.played_at, p.created_at desc;
+end
+$$;
+
+create or replace function public.admin_update_player(p_token text, p_player_id uuid, p_full_name text)
+returns table (player_id uuid, full_name text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_name text;
+begin
+  perform private.admin_check(p_token);
+  v_name := private.clean_name(p_full_name);
+  update public.players p set full_name = v_name, updated_at = now() where p.player_id = p_player_id;
+  if not found then
+    raise exception using errcode = 'PT404', message = 'Không tìm thấy người chơi (có thể đã bị xóa)';
+  end if;
+  return query select p_player_id, v_name;
+end
+$$;
+
+-- Xóa một người chơi; các lượt chơi của họ tự xóa theo (on delete cascade)
+create or replace function public.admin_delete_player(p_token text, p_player_id uuid)
+returns table (full_name text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_name text;
+begin
+  perform private.admin_check(p_token);
+  delete from public.players p where p.player_id = p_player_id returning p.full_name into v_name;
+  if not found then
+    raise exception using errcode = 'PT404', message = 'Không tìm thấy người chơi (có thể đã bị xóa)';
+  end if;
+  return query select v_name;
+end
+$$;
+
+-- Xóa VĨNH VIỄN toàn bộ người chơi + lượt chơi (không lưu trữ, không khôi phục được)
+create or replace function public.admin_delete_all(p_token text)
+returns table (deleted int)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_count int;
+begin
+  perform private.admin_check(p_token);
+  -- Khóa theo đúng thứ tự submit_score ghi (players rồi plays) để không deadlock,
+  -- và để lượt gửi đúng lúc này chờ xong rồi mới ghi vào bảng mới
+  lock table public.players, public.plays in exclusive mode;
+  select count(*) into v_count from public.players;
+  -- "where true" là bắt buộc: Supabase bật pg_safeupdate, chặn DELETE không có WHERE khi gọi qua API
+  delete from public.players where true;
+  return query select v_count;
+end
+$$;
+
+revoke all on function private.set_admin_account(text, text) from public;
+revoke all on function private.admin_check(text) from public;
+-- Supabase tự cấp quyền chạy hàm mới cho anon/authenticated: phải thu hồi rõ ràng
+revoke all on function public.admin_login(text, text)               from public, anon, authenticated;
+revoke all on function public.admin_logout(text)                    from public, anon, authenticated;
+revoke all on function public.admin_list_players(text)              from public, anon, authenticated;
+revoke all on function public.admin_update_player(text, uuid, text) from public, anon, authenticated;
+revoke all on function public.admin_delete_player(text, uuid)       from public, anon, authenticated;
+revoke all on function public.admin_delete_all(text)                from public, anon, authenticated;
+grant execute on function public.admin_login(text, text)               to service_role;
+grant execute on function public.admin_logout(text)                    to service_role;
+grant execute on function public.admin_list_players(text)              to service_role;
+grant execute on function public.admin_update_player(text, uuid, text) to service_role;
+grant execute on function public.admin_delete_player(text, uuid)       to service_role;
+grant execute on function public.admin_delete_all(text)                to service_role;

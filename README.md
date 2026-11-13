@@ -11,6 +11,7 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
 | File | Vai trò |
 |---|---|
 | `index.html` | Toàn bộ trò chơi: giao diện, câu hỏi, đăng nhập, bảng xếp hạng |
+| `admin.html` | Trang quản trị cho giáo viên: đăng nhập, sửa / xóa người chơi (xem mục *Trang quản trị*) |
 | `config.js` | Địa chỉ và khóa công khai của Supabase (bạn tự điền) |
 | `supabase/schema.sql` | Tạo bảng và hàm trên Supabase (chạy một lần) |
 | `supabase/functions/` | Backend: Edge Functions viết bằng TypeScript, tự deploy khi push (xem mục *Backend*) |
@@ -98,22 +99,33 @@ Mỗi lần sửa code và đẩy lên lại, GitHub Pages tự cập nhật sau
 
 - [ ] Mở dashboard Supabase. Gói free **tạm dừng dự án sau khoảng 7 ngày không có hoạt động**. Nếu thấy *Paused*, bấm **Restore** và đợi vài phút.
 - [ ] Mở link thật trên điện thoại và chơi thử một lượt.
-- [ ] (Tùy chọn) Xóa dữ liệu chơi thử, xem mục bên dưới.
+- [ ] (Tùy chọn) Xóa dữ liệu chơi thử trong trang quản trị, xem mục bên dưới.
 
-## Xóa bảng xếp hạng để bắt đầu tiết mới (nút dành cho giáo viên)
+## Trang quản trị (dành cho giáo viên)
 
-1. **Đặt mật khẩu quản trị một lần.** Trong SQL Editor, chạy lệnh sau (ít nhất 8 ký tự). Chạy lại lệnh này để đổi mật khẩu.
+Mở `https://<tên-github>.github.io/<tên-repo>/admin.html` (link cũ `…/#quan-tri` cũng tự chuyển tới đây). Đăng nhập bằng tên đăng nhập và mật khẩu quản trị để:
+
+- Xem **toàn bộ người chơi**, kể cả người đã bấm "Bắt đầu" nhưng chưa chơi xong. Mỗi dòng có hạng, điểm, thời gian, số lượt và lần chơi gần nhất. Ô tìm kiếm không cần gõ dấu, ví dụ gõ "nguyen" vẫn tìm ra "Nguyễn".
+- **✏️ Sửa họ tên** một người chơi. Điểm và thời gian do máy chủ tự tính nên không sửa tay được. Lưu ý: nếu người đó chơi lại trên máy của họ, tên sẽ đổi theo tên họ nhập lúc bắt đầu.
+- **🗑 Xóa** một người chơi, kèm mọi lượt chơi của người đó.
+- **Xóa toàn bộ người chơi** để bắt đầu tiết mới. Phải gõ chữ `XÓA` để xác nhận. Mọi máy đang mở bảng xếp hạng sẽ cập nhật trong vòng 15 giây.
+
+### Đặt tài khoản quản trị (làm một lần)
+
+1. Mở Supabase → **SQL Editor**, chạy lại **toàn bộ** file `supabase/schema.sql` để tạo các hàm quản trị.
+2. Chạy lệnh sau. Tên đăng nhập gồm 3–32 ký tự không dấu; mật khẩu ít nhất 8 ký tự.
    ```sql
-   select private.set_admin_password('mật-khẩu-của-bạn');
+   select private.set_admin_account('ten-dang-nhap', 'mật-khẩu-của-bạn');
    ```
-   Mật khẩu chỉ lưu dạng mã hóa trong Supabase, không nằm trong code. Đừng ghi mật khẩu vào file nào trong repo.
-2. **Mở link quản trị** `https://<tên-github>.github.io/<tên-repo>/#quan-tri`. Bảng xếp hạng sẽ có thêm nút đỏ **🗑 Xóa bảng xếp hạng**. Người chơi mở link thường không thấy nút này.
-3. Bấm nút, nhập mật khẩu rồi bấm **Xóa vĩnh viễn**. Bảng trở về trống, và mọi máy đang mở bảng xếp hạng sẽ cập nhật trong vòng 15 giây.
+   Chạy lại lệnh này để **đổi mật khẩu**. Khi đó mọi nơi đang đăng nhập sẽ bị đăng xuất.
+3. Push code lên `main`. GitHub Actions sẽ tự deploy Edge Function `admin`. Đợi workflow có dấu ✅ rồi mở `admin.html`.
 
-- ⚠️ Đây là **xóa vĩnh viễn**: toàn bộ người chơi và lượt chơi bị xóa khỏi CSDL, **không lưu trữ và không khôi phục được**.
-- Nhập sai mật khẩu **5 lần liên tiếp** thì bị khóa **10 phút**. Đặt lại mật khẩu bằng lệnh ở bước 1 sẽ mở khóa ngay.
-- Người đang chơi dở lúc xóa vẫn chơi bình thường. Kết quả của họ sẽ hiện trên bảng mới.
-- Cũng có thể xóa thẳng trong SQL Editor (không cần mật khẩu): `truncate public.plays, public.players;`
+- Mật khẩu chỉ lưu dạng băm bcrypt trong Supabase, không nằm trong code. Đừng ghi mật khẩu vào file nào trong repo.
+- Mỗi lần đăng nhập có hiệu lực **8 giờ** và chỉ trong tab đó: đóng tab là phải đăng nhập lại. Bấm **Đăng xuất** khi dùng máy chung.
+- Nhập sai **5 lần liên tiếp** thì bị khóa đăng nhập **10 phút**. Chạy lại lệnh ở bước 2 sẽ mở khóa ngay.
+- ⚠️ Xóa là **xóa vĩnh viễn**, không lưu trữ và không khôi phục được. Người đang chơi dở lúc xóa vẫn chơi bình thường, kết quả của họ sẽ hiện trên bảng mới.
+- Cũng có thể xóa thẳng trong SQL Editor mà không cần đăng nhập: `truncate public.plays, public.players;`
+- Cách hoạt động: `admin.html` gọi Edge Function `admin` (`supabase/functions/admin/index.ts`). Hàm này dùng khóa bí mật của máy chủ để gọi các hàm SQL `admin_*`. Trình duyệt không có khóa đó nên không gọi thẳng các hàm này được.
 
 ## Backend (Supabase Edge Functions)
 
