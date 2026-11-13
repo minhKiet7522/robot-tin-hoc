@@ -2046,7 +2046,8 @@
   /* ================= MÁY CHỦ XẾP HẠNG (Supabase) =================
      Trình duyệt chỉ gọi 3 hàm RPC: register_player (lưu họ tên khi bấm "Bắt đầu"),
      submit_score (gửi lượt chơi, máy chủ tự tính điểm và thứ hạng) và
-     get_leaderboard. Người chơi được nhận diện bằng mã thiết bị (deviceId). */
+     get_leaderboard. Người chơi được nhận diện bằng mã thiết bị (deviceId).
+     Ngoài ra có thể gọi Edge Function (supabase/functions/) bằng callFunction(). */
   var CONFIG = window.APP_CONFIG || {};
   var API_URL = String(CONFIG.SUPABASE_URL || "").trim().replace(/\/+$/, "");
   var API_KEY = String(CONFIG.SUPABASE_KEY || "").trim();
@@ -2071,13 +2072,24 @@
     } catch (e) { return false; }
   }
 
-  /* timeoutMs (tùy chọn): quá thời gian thì hủy yêu cầu, để người chơi không bị treo khi mạng yếu */
+  /* Gọi hàm SQL (register_player, submit_score, get_leaderboard…) */
   function rpc(name, params, timeoutMs) {
+    return apiPost("/rest/v1/rpc/" + name, params, timeoutMs);
+  }
+
+  /* Gọi Edge Function trong supabase/functions/<name> (backend TypeScript) */
+  function callFunction(name, body, timeoutMs) {
+    return apiPost("/functions/v1/" + name, body || {}, timeoutMs);
+  }
+  window.callFunction = callFunction;   // để thử trong Console: callFunction("health").then(console.log)
+
+  /* timeoutMs (tùy chọn): quá thời gian thì hủy yêu cầu, để người chơi không bị treo khi mạng yếu */
+  function apiPost(path, params, timeoutMs) {
     if (!API_URL || !API_KEY) return Promise.reject(new Error("chưa cấu hình máy chủ (config.js)"));
     if (isSecretKey(API_KEY)) return Promise.reject(new Error("config.js đang dùng khóa BÍ MẬT – hãy thay bằng khóa anon/publishable"));
     var ctrl = timeoutMs && window.AbortController ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, timeoutMs) : 0;
-    return fetch(API_URL + "/rest/v1/rpc/" + name, {
+    return fetch(API_URL + path, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: API_KEY, Authorization: "Bearer " + API_KEY },
       body: JSON.stringify(params),
@@ -2090,7 +2102,7 @@
     }).then(function (res) {
       clearTimeout(timer);
       return res.json().catch(function () { return null; }).then(function (data) {
-        if (!res.ok) throw new Error((data && data.message) || "lỗi máy chủ (" + res.status + ")");
+        if (!res.ok) throw new Error((data && (data.message || data.error)) || "lỗi máy chủ (" + res.status + ")");
         return data;
       });
     });

@@ -13,6 +13,9 @@ Trò chơi trắc nghiệm 4 trạm dành cho tiết Chuyên đề Tin học. Ng
 | `index.html` | Toàn bộ trò chơi: giao diện, câu hỏi, đăng nhập, bảng xếp hạng |
 | `config.js` | Địa chỉ và khóa công khai của Supabase (bạn tự điền) |
 | `supabase/schema.sql` | Tạo bảng và hàm trên Supabase (chạy một lần) |
+| `supabase/functions/` | Backend: Edge Functions viết bằng TypeScript, tự deploy khi push (xem mục *Backend*) |
+| `supabase/config.toml` | Cấu hình Supabase CLI cho Edge Functions |
+| `.github/workflows/deploy-functions.yml` | GitHub Actions đưa Edge Functions lên Supabase |
 
 ## Cách tính điểm và xếp hạng
 
@@ -111,6 +114,34 @@ Mỗi lần sửa code và đẩy lên lại, GitHub Pages tự cập nhật sau
 - Nhập sai mật khẩu **5 lần liên tiếp** thì bị khóa **10 phút**. Đặt lại mật khẩu bằng lệnh ở bước 1 sẽ mở khóa ngay.
 - Người đang chơi dở lúc xóa vẫn chơi bình thường. Kết quả của họ sẽ hiện trên bảng mới.
 - Cũng có thể xóa thẳng trong SQL Editor (không cần mật khẩu): `truncate public.plays, public.players;`
+
+## Backend (Supabase Edge Functions)
+
+GitHub Pages chỉ chứa trang tĩnh, không chạy được code máy chủ. Vì vậy backend chạy trên **Supabase Edge Functions** (TypeScript, gói Free khoảng 500.000 lượt gọi/tháng, **0đ**). Code nằm trong repo ở `supabase/functions/<tên-hàm>/index.ts`. Mỗi lần push thay đổi trong thư mục này lên `main`, **GitHub Actions** tự đưa code lên Supabase.
+
+Chỉ cần dùng Edge Function khi hàm SQL không làm được: gọi API bên ngoài, gửi email, xử lý file, hoặc cần khóa bí mật. Logic chỉ đọc/ghi dữ liệu thì cứ viết hàm SQL trong `schema.sql` như hiện nay.
+
+### Cài đặt một lần
+
+1. Vào <https://supabase.com/dashboard/account/tokens> và bấm **Generate new token**, rồi chép token.
+2. Trên GitHub, mở repo, vào **Settings → Secrets and variables → Actions → New repository secret**. Đặt tên `SUPABASE_ACCESS_TOKEN` và dán token vào.
+3. Mở tab **Actions**, chọn *Deploy Supabase Edge Functions* rồi bấm **Run workflow** (hoặc push một thay đổi trong `supabase/functions/`). Thấy dấu ✅ xanh là xong.
+4. Kiểm tra: mở trò chơi, nhấn F12 để mở Console và gõ `callFunction("health").then(console.log)`. Kết quả đúng là `{ok: true, time: "…"}`.
+
+### Thêm một hàm mới
+
+1. Tạo `supabase/functions/<tên-hàm>/index.ts` (chép từ `health/index.ts`). Dùng `corsHeaders` và `json()` trong `_shared/cors.ts` để trang web gọi được.
+2. Thêm vào `supabase/config.toml`:
+   ```toml
+   [functions.<tên-hàm>]
+   verify_jwt = false
+   ```
+   Khóa publishable (`sb_publishable_…`) không phải JWT, nên phải tắt kiểm tra JWT ở cổng. Hàm nào cần bảo vệ thì tự kiểm tra trong code, ví dụ bằng mật khẩu quản trị.
+3. Trong `index.html`, gọi bằng `callFunction("<tên-hàm>", { ...dữ liệu }, 8000)`. Hàm này trả về Promise giống `rpc()`.
+4. Push lên `main`, GitHub Actions sẽ tự deploy.
+
+- **Khóa bí mật** (khóa API bên ngoài, khóa `service_role`…) **không bao giờ** được ghi vào repo. Đặt khóa bằng `npx supabase secrets set TEN_KHOA=giá-trị --remote=nsrtpgxcnloqmuntaehu` (cần đăng nhập trước bằng `npx supabase login`), rồi đọc trong hàm bằng `Deno.env.get("TEN_KHOA")`. Trong Edge Function, Supabase tự cung cấp sẵn `SUPABASE_URL` và khóa service role.
+- **Chạy thử trên máy** (cần cài Docker Desktop): chạy `npx supabase start`, rồi `npx supabase functions serve`. Sau đó mở `http://localhost:54321/functions/v1/health`.
 
 ## Sửa câu hỏi
 
